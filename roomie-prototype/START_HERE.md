@@ -32,24 +32,5 @@ We've cleaned up the documentation! Here's what you need to read:
 
 ---
 
-## 🚀 Quick Action Items
-
-**If you want to:**
-
-- **Run the project** → Read `QUICK_START.md` (2 min)
-- **Understand features** → Read `README.md` (10 min)  
-- **Add a new room** → Read `HOW_TO_ADD_ROOMS.md`
-- **Check timeline** → Read `FEATURE_ROADMAP.md`
-- **Present the project** → Read README "For Presentation" section
-
----
-
-## ✅ We Deleted 20+ Redundant Docs!
-
-All important info is now in these 4 files. Clean and simple! 🎉
-
-**Questions?** Check README.md first, then ask in group chat.
-
----
 
 **Happy Coding! 🚀**
