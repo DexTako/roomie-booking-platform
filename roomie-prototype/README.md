@@ -417,8 +417,8 @@ git push origin feature/your-feature-name
 - **Week 15 (Sept 4):** Backend integration, final presentation
 
 ---
-
+Gawr Gura SHAAAAAAAAAAARK
 **Last Updated:** August 10, 2024  
-**Project Lead:** [Your Name]  
+**Project Lead:** Dex Roduel DC. De Guzman  
 **Course:** IT 305W - Advanced Web Application Development  
-**Institution:** [Your University]
+
