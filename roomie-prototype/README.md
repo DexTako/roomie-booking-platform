@@ -1,12 +1,16 @@
+Here is the cleaned and fixed version of your README with all the unnecessary AI-style elements, emojis, and formatting issues removed.
+
+---
+
 # 🏠 Roomie - Immersive 3D Room Booking Platform
 
 **Course:** IT 305W - Advanced Web Application  
 **Team Project** | **Deadline:** September 4, 2024  
-**Status:** ✅ All Core Features Complete - Ahead of Schedule!
+**Status:** All Core Features Complete - Ahead of Schedule
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Node.js installed
@@ -33,10 +37,10 @@ npm run dev
 
 ---
 
-## ✨ Features Completed
+## Features Completed
 
-### 1. **3D Virtual Tours** 🎮
-- Interactive 3D room viewer using Three.js & React Three Fiber
+### 1. 3D Virtual Tours
+- Interactive 3D room viewer using Three.js and React Three Fiber
 - Two viewing modes:
   - **Orbit Mode:** Rotate and zoom around the room
   - **Walk Mode:** First-person WASD controls with mouse look
@@ -44,15 +48,15 @@ npm run dev
 - Debug mode available with `?debug=true` in URL
 - 2 fully modeled rooms loaded from GLB files
 
-### 2. **Authentication System** 🔐
+### 2. Authentication System
 - Complete login/register system
-- Two user roles: **Renter** and **Host**
+- Two user roles: Renter and Host
 - Protected routes (Host Dashboard requires host role)
 - Session persistence with localStorage
-- Beautiful form validation and error handling
+- Form validation and error handling
 - Logout confirmation modal
 
-### 3. **Room Browsing & Booking** 📅
+### 3. Room Browsing & Booking
 - Homepage with filterable room cards
 - Filter by: Price, Capacity, Amenities
 - Room detail pages with:
@@ -63,14 +67,14 @@ npm run dev
   - Reviews section
 - Form validation for all booking fields
 
-### 4. **Host Dashboard** 🏢
+### 4. Host Dashboard
 - View and manage all booking requests
 - 4 booking statuses: Pending, Approved, Declined, Completed
 - Stats cards showing booking counts
 - Approve/decline functionality
 - Filter tabs for easy management
 
-### 5. **Admin Dashboard** 👑 (NEW!)
+### 5. Admin Dashboard
 - **System Overview:** Total users, bookings, revenue, reviews
 - **User Management:** View all users (admins, hosts, renters)
 - **Booking Management:** View all bookings across the platform
@@ -78,7 +82,7 @@ npm run dev
 - **Quick Actions:** Export reports, manage system
 - Purple-themed interface distinguishing from Host Dashboard
 
-### 6. **Reviews System** ⭐
+### 6. Reviews System
 - Star rating component (supports half-stars)
 - Category ratings: Cleanliness, Accuracy, Location, Value
 - Filter reviews by rating
@@ -86,18 +90,18 @@ npm run dev
 - Rating distribution chart
 - Add review form (login required)
 
-### 6. **User Profile Pages** 👤
+### 7. User Profile Pages
 - **My Bookings:** View all bookings with status filters
 - **My Profile:** Edit name, phone, address, bio
 - **Settings:** Notification preferences + password change
 - Toast notifications for all actions
 
-### 7. **Informational Pages** 📄
+### 8. Informational Pages
 - **How It Works:** 4-step process explanation
 - **Contact:** Contact form + contact information
 - Professional design matching app theme
 
-### 8. **Toast Notifications** 🔔
+### 9. Toast Notifications
 - Success, error, info, warning types
 - Auto-close after 3 seconds
 - Manual close option
@@ -105,7 +109,7 @@ npm run dev
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 roomie-prototype/
@@ -157,7 +161,7 @@ roomie-prototype/
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Frontend:** React 18 + Vite
 - **3D Graphics:** Three.js + React Three Fiber + Drei
@@ -169,47 +173,47 @@ roomie-prototype/
 
 ---
 
-## 🎯 How to Use (For Groupmates)
+## How to Use (For Groupmates)
 
 ### Testing the App
 
-1. **Browse Rooms:**
-   - View all rooms on homepage
-   - Use filters (price, capacity)
-   - Click on a room to see details
+**1. Browse Rooms:**
+- View all rooms on homepage
+- Use filters (price, capacity)
+- Click on a room to see details
 
-2. **3D Features:**
-   - Click "View in 3D" button
-   - Use mouse to rotate (Orbit Mode)
-   - Press "Walk Mode" for first-person controls (WASD + mouse)
-   - Click furniture to drag and reposition
-   - Click "Reset" to restore original positions
+**2. 3D Features:**
+- Click "View in 3D" button
+- Use mouse to rotate (Orbit Mode)
+- Press "Walk Mode" for first-person controls (WASD + mouse)
+- Click furniture to drag and reposition
+- Click "Reset" to restore original positions
 
-3. **Booking Flow:**
-   - Select dates in booking form
-   - See real-time price breakdown
-   - Submit booking (login required)
-   - View booking in "My Bookings" page
+**3. Booking Flow:**
+- Select dates in booking form
+- See real-time price breakdown
+- Submit booking (login required)
+- View booking in "My Bookings" page
 
-4. **Admin Features:**
-   - Login as admin: admin@roomie.com / admin123
-   - Access "Admin Dashboard" from navbar
-   - View system-wide statistics
-   - See all users and their roles
-   - Monitor all bookings across platform
-   - Purple-themed admin interface
+**4. Admin Features:**
+- Login as admin: admin@roomie.com / admin123
+- Access "Admin Dashboard" from navbar
+- View system-wide statistics
+- See all users and their roles
+- Monitor all bookings across platform
+- Purple-themed admin interface
 
-5. **Host Features:**
-   - Login as host: host@roomie.com / host123
-   - Go to "Host Dashboard"
-   - Approve/decline booking requests
-   - View booking statistics
+**5. Host Features:**
+- Login as host: host@roomie.com / host123
+- Go to "Host Dashboard"
+- Approve/decline booking requests
+- View booking statistics
 
-6. **User Features:**
-   - Update profile in "My Profile"
-   - Change settings in "Settings"
-   - View booking history in "My Bookings"
-   - Leave reviews on rooms you've stayed in
+**6. User Features:**
+- Update profile in "My Profile"
+- Change settings in "Settings"
+- View booking history in "My Bookings"
+- Leave reviews on rooms you've stayed in
 
 ### Adding New Rooms
 
@@ -242,17 +246,17 @@ Edit `src/data/rooms.js`:
 
 ---
 
-## 🔧 Known Issues & Limitations
+## Known Issues & Limitations
 
 ### Current Limitations
-- ❌ No real backend (using localStorage)
-- ❌ No payment integration
-- ❌ No real-time updates
-- ❌ No image uploads
-- ❌ No messaging between users
-- ❌ Mobile responsive but no mobile menu
+- No real backend (using localStorage)
+- No payment integration
+- No real-time updates
+- No image uploads
+- No messaging between users
+- Mobile responsive but no mobile menu
 
-### To Be Added (Week 15 - Backend Phase)
+### To Be Added (Backend Phase)
 - [ ] Real database (MongoDB/PostgreSQL)
 - [ ] RESTful API
 - [ ] Payment processing (Stripe)
@@ -263,7 +267,7 @@ Edit `src/data/rooms.js`:
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### PowerShell Script Execution Error
 ```powershell
@@ -293,7 +297,7 @@ taskkill /PID [PID_NUMBER] /F
 
 ---
 
-## 📝 For Presentation
+## For Presentation
 
 ### Key Points to Highlight
 1. **Innovation:** First room booking platform with full 3D virtual tours
@@ -320,7 +324,7 @@ taskkill /PID [PID_NUMBER] /F
 
 ---
 
-## 👥 Team Workflow
+## Team Workflow
 
 ### Git Best Practices
 ```bash
@@ -354,7 +358,7 @@ git push origin feature/your-feature-name
 
 ---
 
-## 📦 Dependencies
+## Dependencies
 
 **Core:**
 - react: ^18.2.0
@@ -369,11 +373,11 @@ git push origin feature/your-feature-name
 **Styling:**
 - tailwindcss: ^3.4.0
 
-**See `package.json` for full list**
+See `package.json` for full list.
 
 ---
 
-## 📞 Need Help?
+## Need Help?
 
 **Project Issues:**
 - Check browser console for errors
@@ -388,7 +392,7 @@ git push origin feature/your-feature-name
 
 ---
 
-## ✅ Completion Checklist
+## Completion Checklist
 
 - [x] 3D Room Viewer (Orbit + Walk Mode)
 - [x] Interactive Furniture
@@ -405,20 +409,19 @@ git push origin feature/your-feature-name
 - [x] Error Handling
 - [x] Loading States
 
-**Status:** 🎉 Production Ready for Demo!
+**Status:** Production Ready for Demo
 
 ---
 
-## 📅 Timeline
+## Timeline
 
-- **Week 1-2 (Done):** Project setup, 3D viewer, basic pages
-- **Week 3 (Done):** Auth system, reviews, bookings
-- **Week 4 (Current):** Polish, testing, documentation
+- **Week 1-2:** Project setup, 3D viewer, basic pages
+- **Week 3:** Auth system, reviews, bookings
+- **Week 4:** Polish, testing, documentation
 - **Week 15 (Sept 4):** Backend integration, final presentation
 
 ---
-Gawr Gura SHAAAAAAAAAAARK
-**Last Updated:** August 10, 2024  
-**Project Lead:** Dex Roduel DC. De Guzman  
-**Course:** IT 305W - Advanced Web Application Development  
 
+**Last Updated:** August 12, 2024  
+**Project Lead:** Dex Roduel DC. De Guzman  
+**Course:** IT 305W - Advanced Web Application Development
