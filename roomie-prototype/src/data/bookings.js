@@ -139,6 +139,38 @@ export const addBooking = (bookingData) => {
   const storedBookings = localStorage.getItem('bookings')
   let allBookings = storedBookings ? JSON.parse(storedBookings) : [...bookings]
   
+  // Check for date overlaps with existing bookings for this room
+  const roomBookings = allBookings.filter(
+    b => b.roomId === bookingData.roomId && 
+    (b.status === 'pending' || b.status === 'approved')
+  )
+  
+  const newCheckIn = new Date(bookingData.checkIn)
+  const newCheckOut = new Date(bookingData.checkOut)
+  
+  // Check if dates overlap with any existing booking
+  const hasOverlap = roomBookings.some(existingBooking => {
+    const existingCheckIn = new Date(existingBooking.checkIn)
+    const existingCheckOut = new Date(existingBooking.checkOut)
+    
+    // Overlap occurs if:
+    // - New check-in is between existing dates
+    // - New check-out is between existing dates
+    // - New booking completely contains existing booking
+    return (
+      (newCheckIn >= existingCheckIn && newCheckIn < existingCheckOut) ||
+      (newCheckOut > existingCheckIn && newCheckOut <= existingCheckOut) ||
+      (newCheckIn <= existingCheckIn && newCheckOut >= existingCheckOut)
+    )
+  })
+  
+  if (hasOverlap) {
+    return {
+      success: false,
+      error: 'These dates are not available. Please choose different dates.'
+    }
+  }
+  
   // Generate new ID (max existing ID + 1)
   const maxId = allBookings.length > 0 
     ? Math.max(...allBookings.map(b => b.id)) 
@@ -158,5 +190,8 @@ export const addBooking = (bookingData) => {
   // Save back to localStorage
   localStorage.setItem('bookings', JSON.stringify(allBookings))
   
-  return newBooking
+  return {
+    success: true,
+    booking: newBooking
+  }
 }

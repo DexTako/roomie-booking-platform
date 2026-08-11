@@ -86,9 +86,15 @@ function RoomDetailPage({ room, onBack }) {
     }
 
     // Add booking to localStorage store
-    const savedBooking = addBooking(newBooking)
+    const result = addBooking(newBooking)
     
-    setBookingData(savedBooking)
+    if (!result.success) {
+      // Show error if dates overlap
+      alert(result.error)
+      return
+    }
+    
+    setBookingData(result.booking)
     setIsBooked(true)
   }
 

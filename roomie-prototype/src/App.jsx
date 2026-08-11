@@ -52,7 +52,7 @@ function App() {
     }
     
     if (user.role !== 'host') {
-      alert('Only hosts can access the Host Dashboard. Please login as a host.')
+      showToast('Only hosts can access the Host Dashboard. Please login as a host.', 'error')
       return
     }
     
@@ -68,7 +68,7 @@ function App() {
     }
     
     if (user.role !== 'admin') {
-      alert('Only administrators can access the Admin Dashboard.')
+      showToast('Only administrators can access the Admin Dashboard.', 'error')
       return
     }
     
