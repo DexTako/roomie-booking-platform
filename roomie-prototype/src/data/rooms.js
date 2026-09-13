@@ -133,7 +133,150 @@ export const rooms = [
     model3D: null,
     has3D: false,
     waypoints: {}
+  },
+  {
+  id: 4,
+  name: "Minimalistic Apartment",
+  description: "Testing",
+  pricePerNight: 150,
+  capacity: 5,
+  theme: "modern",
+  location: "City Center",
+  amenities: [
+    "Free WiFi",
+    "Full Kitchen",
+    "Air Conditioning",
+    "Room Bathrooms"
+  ],
+  galleryImages: [
+    "/images/room4/room4-1.jpg",
+    "/images/room4/room4-2.jpg",
+    "/images/room4/room4-3.jpg"
+  ],
+
+  model3D: "/models/room4/source/apartment.glb",
+
+  has3D: true,
+  fixMaterials: false,
+  enablePhysics: true,
+
+  waypoints: {
+    livingRoom:{
+      position: [19.25,1.23,-15.37],
+      target: [16.13,-0.18,-11.72]
+    },
+    kitchen:{
+      position: [18.97,1.47,-13.37],
+      target: [22.55,-0.07,-16.51]
+    },
+    bedroom1:{
+      position: [21.26,0.64,-19.41],
+      target: [23.67,-0.91,-23.52]
+    },
+    bedroom2:{
+      position: [17.85,0.73,-19.4],
+      target: [14.64,-0.56,-23.01]
+    },
+    bedroom3:{
+      position: [16.89,0.81,-17.85],
+      target: [13.43,-0.83,-14.64]
+    },
+    bathroom1:{
+      position: [20.82,1.02,-20.76],
+      target: [16.27,-0.76,-21.82]
+    },
+    bathroom2:{
+      position: [20.32,1.12,-18.08],
+      target: [24.2,-1.5,-16.35]
+    }
   }
+  
+},
+{
+  id: 5,
+  name: "Scandinavian Apartment",
+  description: "Testing",
+  pricePerNight: 70,
+  capacity: 3,
+  theme: "modern",
+  location: "Province",
+  amenities: [
+    "Free WiFi",
+    "Full Kitchen",
+    "Air Conditioning",
+    "Bathroom",
+    "Livingroom Television"
+  ],
+  galleryImages: [
+    "/images/room5/room5-1.png",
+    "/images/room5/room5-2.png"
+  ],
+
+  model3D: "/models/room5/source/twokinds_modern_trio_apartment.glb",
+
+  has3D: true,
+  fixMaterials: false,
+  enablePhysics: true,
+
+  waypoints: {
+    kitchen: {
+      position: [-6.6,0.91,2.46],
+      target: [-9.32,0.94,-1.73]
+      },
+    livingRoom: {
+      position: [-2.45,1.1,1.33],
+      target: [0,0,0]
+      },
+   bedroom1: {
+      position: [4.07,1.03,5],
+      target: [9.04,1.08,4.5]
+      },
+    bedroom2: {
+      position: [7.4,1.08,-0.52],
+      target: [2.48,0.37,0.04]
+      },
+    bathroom: {
+      position: [1.13,1.34,2.34],
+      target: [2.48,1.2,-2.47]
+      }
+  }
+},
+{
+  id: 6,
+  name: "Luxury Apartment",
+  description: "Testing",
+  pricePerNight: 200,
+  capacity: 2,
+  theme: "luxury",
+  location: "Financial District",
+  amenities: [
+    "Free WiFi",
+    "Air Conditioning",
+    "Bathroom",
+    "Livingroom Television"
+  ],
+  galleryImages: [
+    "/images/room6/room6-1.jpg",
+    "/images/room6/room6-2.jpg"
+  ],
+
+  model3D: "/models/room6/source/custom_brown_axminster_carpet_hotel_room (1).glb",
+
+  has3D: true,
+  fixMaterials: false,
+  enablePhysics: true,
+
+  waypoints: {
+   bedroom1:{
+      position: [9.4,0.87,-7.81],
+      target: [14.01,0.16,-9.61]
+    },
+    bathroom: {
+      position: [12.06,1.33,-2.66],
+      target: [16.38,-0.74,-4.09]
+    }
+  }
+}
 ]
 
 // Helper function to get a room by ID

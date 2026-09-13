@@ -967,6 +967,7 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
           <pointLight position={[0, 10, 0]} intensity={2} />
           <hemisphereLight color="#ffffff" groundColor="#cccccc" intensity={1.5} />
 
+
           {/* Scene - same regardless of physics setting */}
           <RoomModel 
             modelPath={modelPath} 
