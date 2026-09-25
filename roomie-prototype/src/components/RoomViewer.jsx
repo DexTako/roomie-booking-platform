@@ -882,86 +882,151 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
 
       {/* Mobile Touch Controls for Walk Mode */}
       {isWalkMode && (
-        <div className="md:hidden absolute bottom-4 left-4 right-4 z-20 flex items-end justify-between gap-4">
+        <div className="md:hidden absolute bottom-4 left-4 right-4 z-20 flex items-end justify-between gap-4 pointer-events-auto">
           {/* Virtual D-Pad */}
-          <div className="relative w-32 h-32 bg-black/50 backdrop-blur-sm rounded-full border-2 border-white/30">
+          <div className="relative w-32 h-32 bg-black/50 backdrop-blur-sm rounded-full border-2 border-white/30 pointer-events-auto">
             {/* Center indicator */}
-            <div className="absolute top-1/2 left-1/2 w-6 h-6 bg-white/40 rounded-full -translate-x-1/2 -translate-y-1/2"></div>
+            <div className="absolute top-1/2 left-1/2 w-6 h-6 bg-white/40 rounded-full -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
             
             {/* Up */}
             <button
-              onTouchStart={() => {
-                const event = new KeyboardEvent('keydown', { key: 'w' });
+              type="button"
+              onTouchStart={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keydown', { key: 'w', bubbles: true });
                 document.dispatchEvent(event);
               }}
-              onTouchEnd={() => {
-                const event = new KeyboardEvent('keyup', { key: 'w' });
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keyup', { key: 'w', bubbles: true });
                 document.dispatchEvent(event);
               }}
-              className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-12 bg-white/70 hover:bg-white/90 active:bg-white rounded-t-full flex items-center justify-center text-black font-bold text-sm"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keydown', { key: 'w', bubbles: true });
+                document.dispatchEvent(event);
+              }}
+              onMouseUp={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keyup', { key: 'w', bubbles: true });
+                document.dispatchEvent(event);
+              }}
+              className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-12 bg-white/70 hover:bg-white/90 active:bg-white rounded-t-full flex items-center justify-center text-black font-bold text-sm touch-none select-none"
             >
               ↑
             </button>
             
             {/* Down */}
             <button
-              onTouchStart={() => {
-                const event = new KeyboardEvent('keydown', { key: 's' });
+              type="button"
+              onTouchStart={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keydown', { key: 's', bubbles: true });
                 document.dispatchEvent(event);
               }}
-              onTouchEnd={() => {
-                const event = new KeyboardEvent('keyup', { key: 's' });
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keyup', { key: 's', bubbles: true });
                 document.dispatchEvent(event);
               }}
-              className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-12 bg-white/70 hover:bg-white/90 active:bg-white rounded-b-full flex items-center justify-center text-black font-bold text-sm"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keydown', { key: 's', bubbles: true });
+                document.dispatchEvent(event);
+              }}
+              onMouseUp={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keyup', { key: 's', bubbles: true });
+                document.dispatchEvent(event);
+              }}
+              className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-12 bg-white/70 hover:bg-white/90 active:bg-white rounded-b-full flex items-center justify-center text-black font-bold text-sm touch-none select-none"
             >
               ↓
             </button>
             
             {/* Left */}
             <button
-              onTouchStart={() => {
-                const event = new KeyboardEvent('keydown', { key: 'a' });
+              type="button"
+              onTouchStart={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keydown', { key: 'a', bubbles: true });
                 document.dispatchEvent(event);
               }}
-              onTouchEnd={() => {
-                const event = new KeyboardEvent('keyup', { key: 'a' });
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keyup', { key: 'a', bubbles: true });
                 document.dispatchEvent(event);
               }}
-              className="absolute left-0 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/70 hover:bg-white/90 active:bg-white rounded-l-full flex items-center justify-center text-black font-bold text-sm"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keydown', { key: 'a', bubbles: true });
+                document.dispatchEvent(event);
+              }}
+              onMouseUp={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keyup', { key: 'a', bubbles: true });
+                document.dispatchEvent(event);
+              }}
+              className="absolute left-0 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/70 hover:bg-white/90 active:bg-white rounded-l-full flex items-center justify-center text-black font-bold text-sm touch-none select-none"
             >
               ←
             </button>
             
             {/* Right */}
             <button
-              onTouchStart={() => {
-                const event = new KeyboardEvent('keydown', { key: 'd' });
+              type="button"
+              onTouchStart={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keydown', { key: 'd', bubbles: true });
                 document.dispatchEvent(event);
               }}
-              onTouchEnd={() => {
-                const event = new KeyboardEvent('keyup', { key: 'd' });
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keyup', { key: 'd', bubbles: true });
                 document.dispatchEvent(event);
               }}
-              className="absolute right-0 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/70 hover:bg-white/90 active:bg-white rounded-r-full flex items-center justify-center text-black font-bold text-sm"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keydown', { key: 'd', bubbles: true });
+                document.dispatchEvent(event);
+              }}
+              onMouseUp={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keyup', { key: 'd', bubbles: true });
+                document.dispatchEvent(event);
+              }}
+              className="absolute right-0 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/70 hover:bg-white/90 active:bg-white rounded-r-full flex items-center justify-center text-black font-bold text-sm touch-none select-none"
             >
               →
             </button>
           </div>
 
           {/* Action Buttons (Up/Down) */}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 pointer-events-auto">
             {/* Up button */}
             <button
-              onTouchStart={() => {
-                const event = new KeyboardEvent('keydown', { key: 'e' });
+              type="button"
+              onTouchStart={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keydown', { key: 'e', bubbles: true });
                 document.dispatchEvent(event);
               }}
-              onTouchEnd={() => {
-                const event = new KeyboardEvent('keyup', { key: 'e' });
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keyup', { key: 'e', bubbles: true });
                 document.dispatchEvent(event);
               }}
-              className="w-14 h-14 bg-green-500/80 hover:bg-green-500 active:bg-green-600 rounded-full flex flex-col items-center justify-center text-white font-bold text-xs shadow-lg border-2 border-white/30"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keydown', { key: 'e', bubbles: true });
+                document.dispatchEvent(event);
+              }}
+              onMouseUp={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keyup', { key: 'e', bubbles: true });
+                document.dispatchEvent(event);
+              }}
+              className="w-14 h-14 bg-green-500/80 hover:bg-green-500 active:bg-green-600 rounded-full flex flex-col items-center justify-center text-white font-bold text-xs shadow-lg border-2 border-white/30 touch-none select-none"
             >
               <span className="text-lg">↑</span>
               <span className="text-[8px]">UP</span>
@@ -969,15 +1034,28 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
             
             {/* Down button */}
             <button
-              onTouchStart={() => {
-                const event = new KeyboardEvent('keydown', { key: 'q' });
+              type="button"
+              onTouchStart={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keydown', { key: 'q', bubbles: true });
                 document.dispatchEvent(event);
               }}
-              onTouchEnd={() => {
-                const event = new KeyboardEvent('keyup', { key: 'q' });
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keyup', { key: 'q', bubbles: true });
                 document.dispatchEvent(event);
               }}
-              className="w-14 h-14 bg-red-500/80 hover:bg-red-500 active:bg-red-600 rounded-full flex flex-col items-center justify-center text-white font-bold text-xs shadow-lg border-2 border-white/30"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keydown', { key: 'q', bubbles: true });
+                document.dispatchEvent(event);
+              }}
+              onMouseUp={(e) => {
+                e.preventDefault();
+                const event = new KeyboardEvent('keyup', { key: 'q', bubbles: true });
+                document.dispatchEvent(event);
+              }}
+              className="w-14 h-14 bg-red-500/80 hover:bg-red-500 active:bg-red-600 rounded-full flex flex-col items-center justify-center text-white font-bold text-xs shadow-lg border-2 border-white/30 touch-none select-none"
             >
               <span className="text-lg">↓</span>
               <span className="text-[8px]">DOWN</span>

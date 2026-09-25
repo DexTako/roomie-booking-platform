@@ -101,7 +101,7 @@ function RoomDetailPage({ room, onBack }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-24">
+    <div className="min-h-screen bg-gray-50 pt-24 overflow-x-hidden">
       {/* Header with Breadcrumb */}
       <div className="bg-white border-b shadow-sm">
         <div className="container mx-auto px-4 py-6">
@@ -115,7 +115,7 @@ function RoomDetailPage({ room, onBack }) {
         </div>
       </div>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8 overflow-x-hidden">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-start justify-between mb-4">
