@@ -1064,9 +1064,9 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
         </div>
       )}
 
-      {/* Pointer Lock Status Indicator */}
+      {/* Pointer Lock Status Indicator - Desktop Only */}
       {isWalkMode && !document.pointerLockElement && (
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 bg-purple-900/95 text-white px-6 py-4 rounded-lg text-center shadow-2xl border-2 border-purple-400">
+        <div className="hidden md:block absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 bg-purple-900/95 text-white px-6 py-4 rounded-lg text-center shadow-2xl border-2 border-purple-400">
           <div className="text-lg font-bold mb-2">👆 Click to Start Walking</div>
           <div className="text-sm">Mouse pointer is not locked</div>
           <div className="text-xs mt-2 text-purple-200">Press ESC anytime to unlock and take screenshots</div>
