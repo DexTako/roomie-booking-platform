@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import Breadcrumb from '../components/Breadcrumb'
 
 function MyProfilePage({ onBack, onShowToast }) {
   const { user, updateProfile } = useAuth()
@@ -41,43 +42,41 @@ function MyProfilePage({ onBack, onShowToast }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 py-8 pt-24">
       <div className="container mx-auto px-4 max-w-3xl">
+        {/* Breadcrumb */}
+        <Breadcrumb
+          items={[
+            { label: 'Home', onClick: onBack },
+            { label: 'My Profile' }
+          ]}
+        />
+
         {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <button
-            onClick={onBack}
-            className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
-            <p className="text-gray-600 mt-1">Manage your personal information</p>
-          </div>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
+          <p className="text-gray-600 mt-1">Manage your personal information</p>
         </div>
 
         {/* Profile Card */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           {/* Header Section */}
-          <div className="bg-gradient-to-r from-blue-500 to-purple-600 h-32"></div>
+          <div className="bg-gradient-to-r from-blue-500 to-purple-600 h-24 md:h-32"></div>
           
-          {/* Avatar Section */}
-          <div className="px-8 pb-8">
-            <div className="flex items-end justify-between -mt-16 mb-6">
-              <div className="flex items-end gap-4">
-                <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center border-4 border-white shadow-lg">
-                  <span className="text-white font-bold text-4xl">
+          {/* Avatar Section - Mobile Optimized */}
+          <div className="px-4 md:px-8 pb-6 md:pb-8">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between -mt-12 md:-mt-16 mb-4 md:mb-6 gap-4">
+              <div className="flex flex-col sm:flex-row items-center sm:items-end gap-3 md:gap-4">
+                <div className="w-24 h-24 md:w-32 md:h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center border-4 border-white shadow-lg flex-shrink-0">
+                  <span className="text-white font-bold text-3xl md:text-4xl">
                     {user?.name?.charAt(0).toUpperCase()}
                   </span>
                 </div>
-                <div className="pb-2">
-                  <h2 className="text-2xl font-bold text-gray-900">{user?.name}</h2>
-                  <p className="text-gray-600 capitalize flex items-center gap-2">
-                    {user?.role === 'host' ? '🏠 Host' : '👤 Renter'}
-                    <span className="text-sm text-gray-400">• Member since {new Date(user?.createdAt || Date.now()).toLocaleDateString()}</span>
+                <div className="text-center sm:text-left pb-1 md:pb-2">
+                  <h2 className="text-xl md:text-2xl font-bold text-gray-900">{user?.name}</h2>
+                  <p className="text-sm md:text-base text-gray-600 capitalize flex items-center justify-center sm:justify-start gap-2 flex-wrap">
+                    <span>{user?.role === 'host' ? '🏠 Host' : '👤 Renter'}</span>
+                    <span className="text-xs md:text-sm text-gray-400">• Member since {new Date(user?.createdAt || Date.now()).toLocaleDateString()}</span>
                   </p>
                 </div>
               </div>
@@ -85,7 +84,7 @@ function MyProfilePage({ onBack, onShowToast }) {
               {!isEditing && (
                 <button
                   onClick={() => setIsEditing(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                  className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 text-sm md:text-base"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -96,7 +95,7 @@ function MyProfilePage({ onBack, onShowToast }) {
             </div>
 
             {/* Profile Form */}
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
               {/* Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -108,7 +107,7 @@ function MyProfilePage({ onBack, onShowToast }) {
                   value={formData.name}
                   onChange={handleChange}
                   disabled={!isEditing}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600"
+                  className="w-full px-3 md:px-4 py-2 md:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600 text-sm md:text-base"
                   required
                 />
               </div>
@@ -122,7 +121,7 @@ function MyProfilePage({ onBack, onShowToast }) {
                   type="email"
                   value={user?.email || ''}
                   disabled
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
+                  className="w-full px-3 md:px-4 py-2 md:py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 text-sm md:text-base"
                 />
                 <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
               </div>
@@ -139,7 +138,7 @@ function MyProfilePage({ onBack, onShowToast }) {
                   onChange={handleChange}
                   disabled={!isEditing}
                   placeholder="+1 (555) 123-4567"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600"
+                  className="w-full px-3 md:px-4 py-2 md:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600 text-sm md:text-base"
                 />
               </div>
 
@@ -155,7 +154,7 @@ function MyProfilePage({ onBack, onShowToast }) {
                   onChange={handleChange}
                   disabled={!isEditing}
                   placeholder="123 Main St, City, State"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600"
+                  className="w-full px-3 md:px-4 py-2 md:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600 text-sm md:text-base"
                 />
               </div>
 
@@ -171,23 +170,23 @@ function MyProfilePage({ onBack, onShowToast }) {
                   disabled={!isEditing}
                   rows={4}
                   placeholder="Tell us a bit about yourself..."
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600 resize-none"
+                  className="w-full px-3 md:px-4 py-2 md:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600 resize-none text-sm md:text-base"
                 />
               </div>
 
               {/* Action Buttons */}
               {isEditing && (
-                <div className="flex gap-3 pt-4">
+                <div className="flex flex-col sm:flex-row gap-3 pt-4">
                   <button
                     type="submit"
-                    className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                    className="flex-1 px-4 md:px-6 py-2 md:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm md:text-base"
                   >
                     Save Changes
                   </button>
                   <button
                     type="button"
                     onClick={handleCancel}
-                    className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                    className="flex-1 px-4 md:px-6 py-2 md:py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium text-sm md:text-base"
                   >
                     Cancel
                   </button>
@@ -198,18 +197,18 @@ function MyProfilePage({ onBack, onShowToast }) {
         </div>
 
         {/* Account Info */}
-        <div className="mt-6 bg-white rounded-lg shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Information</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center py-2 border-b border-gray-100">
+        <div className="mt-4 md:mt-6 bg-white rounded-lg shadow-sm p-4 md:p-6">
+          <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">Account Information</h3>
+          <div className="space-y-2 md:space-y-3">
+            <div className="flex justify-between items-center py-2 border-b border-gray-100 text-sm md:text-base">
               <span className="text-gray-600">Account Type</span>
               <span className="font-medium capitalize">{user?.role}</span>
             </div>
-            <div className="flex justify-between items-center py-2 border-b border-gray-100">
+            <div className="flex justify-between items-center py-2 border-b border-gray-100 text-sm md:text-base">
               <span className="text-gray-600">User ID</span>
-              <span className="font-mono text-sm">{user?.id}</span>
+              <span className="font-mono text-xs md:text-sm break-all">{user?.id}</span>
             </div>
-            <div className="flex justify-between items-center py-2">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 gap-1 text-sm md:text-base">
               <span className="text-gray-600">Member Since</span>
               <span className="font-medium">{new Date(user?.createdAt || Date.now()).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
             </div>

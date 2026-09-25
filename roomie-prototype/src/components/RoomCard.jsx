@@ -1,9 +1,32 @@
 import { calculateAverageRating, getReviewsByRoom } from '../data/reviews'
+import { useWishlist } from '../context/WishlistContext'
+import { useComparison } from '../context/ComparisonContext'
 import StarRating from './StarRating'
 
 function RoomCard({ room, onSelect }) {
+  const { toggleWishlist, isInWishlist } = useWishlist()
+  const { addToComparison, removeFromComparison, isInComparison } = useComparison()
   const averageRating = calculateAverageRating(room.id)
   const reviewCount = getReviewsByRoom(room.id).length
+  const isFavorite = isInWishlist(room.id)
+  const isComparing = isInComparison(room.id)
+
+  const handleWishlistClick = (e) => {
+    e.stopPropagation()
+    toggleWishlist(room.id)
+  }
+
+  const handleCompareToggle = (e) => {
+    e.stopPropagation()
+    if (isComparing) {
+      removeFromComparison(room.id)
+    } else {
+      const result = addToComparison(room.id)
+      if (!result.success) {
+        alert(result.message)
+      }
+    }
+  }
 
   return (
     <div 
@@ -30,6 +53,29 @@ function RoomCard({ room, onSelect }) {
           </span>
         </div>
 
+        {/* Wishlist Heart Button */}
+        <button
+          onClick={handleWishlistClick}
+          className="absolute top-3 right-14 w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-all hover:scale-110 shadow-lg group"
+          title={isFavorite ? 'Remove from wishlist' : 'Add to wishlist'}
+        >
+          <svg
+            className={`w-5 h-5 transition-all ${
+              isFavorite
+                ? 'fill-red-500 stroke-red-500'
+                : 'fill-none stroke-gray-700 group-hover:fill-red-100 group-hover:stroke-red-500'
+            }`}
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+            />
+          </svg>
+        </button>
+
         {/* 3D Badge */}
         {room.has3D && (
           <div className="absolute top-3 right-3">
@@ -45,6 +91,25 @@ function RoomCard({ room, onSelect }) {
 
       {/* Room Info */}
       <div className="p-4">
+        {/* Compare Checkbox */}
+        <div className="flex items-center gap-2 mb-3">
+          <input
+            type="checkbox"
+            id={`compare-${room.id}`}
+            checked={isComparing}
+            onChange={handleCompareToggle}
+            onClick={(e) => e.stopPropagation()}
+            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
+          />
+          <label
+            htmlFor={`compare-${room.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="text-sm text-gray-700 cursor-pointer select-none"
+          >
+            Compare
+          </label>
+        </div>
+
         <h3 className="text-xl font-bold text-gray-900 mb-1">{room.name}</h3>
         
         <p className="text-sm text-gray-600 mb-3 flex items-center gap-1">

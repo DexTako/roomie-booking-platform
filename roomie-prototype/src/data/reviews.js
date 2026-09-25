@@ -114,6 +114,142 @@ export const reviews = [
     createdAt: '2024-08-05T18:30:00Z',
     helpful: 20,
     notHelpful: 2
+  },
+  // Room 4 - Minimalistic Apartment
+  {
+    id: 7,
+    roomId: 4,
+    userId: 'user_008',
+    reviewerName: 'Anna Martinez',
+    reviewerAvatar: null,
+    rating: 5,
+    ratings: {
+      cleanliness: 5,
+      accuracy: 5,
+      location: 5,
+      value: 5
+    },
+    comment: 'Perfect minimalist design! The apartment is spacious and the 3D tour helped me visualize the layout perfectly. All three bedrooms are comfortable and the two bathrooms made it ideal for our family. City center location is unbeatable!',
+    photos: [],
+    createdAt: '2024-08-10T10:15:00Z',
+    helpful: 14,
+    notHelpful: 0
+  },
+  {
+    id: 8,
+    roomId: 4,
+    userId: 'user_009',
+    reviewerName: 'Tom Anderson',
+    reviewerAvatar: null,
+    rating: 4,
+    ratings: {
+      cleanliness: 5,
+      accuracy: 4,
+      location: 5,
+      value: 4
+    },
+    comment: 'Great space for a group stay. The minimalist aesthetic is very calming and everything was spotless. Kitchen is well-equipped. Only minor issue was street noise at night, but overall highly recommend!',
+    photos: [],
+    createdAt: '2024-08-15T14:20:00Z',
+    helpful: 9,
+    notHelpful: 1
+  },
+  // Room 5 - Scandinavian Apartment
+  {
+    id: 9,
+    roomId: 5,
+    userId: 'user_010',
+    reviewerName: 'Sophie Nielsen',
+    reviewerAvatar: null,
+    rating: 5,
+    ratings: {
+      cleanliness: 5,
+      accuracy: 5,
+      location: 4,
+      value: 5
+    },
+    comment: 'Beautiful Scandinavian design! The natural light, clean lines, and cozy atmosphere made our stay wonderful. Two spacious bedrooms and a lovely living room. The 3D tour was spot-on. Excellent value for money!',
+    photos: [],
+    createdAt: '2024-08-12T09:45:00Z',
+    helpful: 11,
+    notHelpful: 0
+  },
+  {
+    id: 10,
+    roomId: 5,
+    userId: 'user_011',
+    reviewerName: 'Marcus Berg',
+    reviewerAvatar: null,
+    rating: 5,
+    ratings: {
+      cleanliness: 5,
+      accuracy: 5,
+      location: 4,
+      value: 5
+    },
+    comment: 'Loved the Scandinavian minimalism! Very peaceful and well-designed. Kitchen is modern and functional. The location is a bit outside the city center but the tranquility is worth it. Perfect for a relaxing getaway!',
+    photos: [],
+    createdAt: '2024-08-18T16:30:00Z',
+    helpful: 8,
+    notHelpful: 0
+  },
+  {
+    id: 11,
+    roomId: 5,
+    userId: 'user_012',
+    reviewerName: 'Emma Larsson',
+    reviewerAvatar: null,
+    rating: 4,
+    ratings: {
+      cleanliness: 5,
+      accuracy: 5,
+      location: 3,
+      value: 4
+    },
+    comment: 'Charming apartment with beautiful design. Everything is clean and well-maintained. A bit far from downtown attractions but great if you want peace and quiet. Would definitely stay again!',
+    photos: [],
+    createdAt: '2024-08-20T11:10:00Z',
+    helpful: 6,
+    notHelpful: 0
+  },
+  // Room 6 - Luxury Apartment
+  {
+    id: 12,
+    roomId: 6,
+    userId: 'user_013',
+    reviewerName: 'Victoria Hayes',
+    reviewerAvatar: null,
+    rating: 5,
+    ratings: {
+      cleanliness: 5,
+      accuracy: 5,
+      location: 5,
+      value: 4
+    },
+    comment: 'Absolutely luxurious! The carpet and furnishings are top-notch. Financial District location is perfect for business travelers. The 3D tour really showcased the elegance. A bit pricey but worth it for special occasions!',
+    photos: [],
+    createdAt: '2024-08-14T13:25:00Z',
+    helpful: 16,
+    notHelpful: 1
+  },
+  {
+    id: 13,
+    roomId: 6,
+    userId: 'user_014',
+    reviewerName: 'Robert Chen',
+    reviewerAvatar: null,
+    rating: 5,
+    ratings: {
+      cleanliness: 5,
+      accuracy: 5,
+      location: 5,
+      value: 5
+    },
+    comment: 'Premium experience from start to finish! The luxury apartment exceeded expectations. Everything is immaculate and the attention to detail is impressive. Perfect for a romantic weekend or business stay. Highly recommended!',
+    photos: [],
+    createdAt: '2024-08-19T17:40:00Z',
+    helpful: 13,
+    notHelpful: 0
   }
 ]
 

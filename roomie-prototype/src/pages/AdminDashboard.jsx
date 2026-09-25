@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getAllBookings } from '../data/bookings'
 import { getAllReviews } from '../data/reviews'
+import Breadcrumb from '../components/Breadcrumb'
 
 function AdminDashboard({ onBack }) {
   const [stats, setStats] = useState({
@@ -82,19 +83,20 @@ function AdminDashboard({ onBack }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 py-8 pt-24">
       <div className="container mx-auto px-4 max-w-7xl">
+        
+        {/* Breadcrumb */}
+        <Breadcrumb
+          items={[
+            { label: 'Home', onClick: onBack },
+            { label: 'Admin Dashboard' }
+          ]}
+        />
+
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <button
-              onClick={onBack}
-              className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
             <div>
               <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
                 <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { getAllBookings } from '../data/bookings'
 import { getRoomById } from '../data/rooms'
+import Breadcrumb from '../components/Breadcrumb'
 
 function MyBookingsPage({ onBack, onViewRoom }) {
   const { user } = useAuth()
@@ -47,22 +48,20 @@ function MyBookingsPage({ onBack, onViewRoom }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 py-8 pt-24">
       <div className="container mx-auto px-4 max-w-5xl">
+        {/* Breadcrumb */}
+        <Breadcrumb
+          items={[
+            { label: 'Home', onClick: onBack },
+            { label: 'My Bookings' }
+          ]}
+        />
+
         {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <button
-            onClick={onBack}
-            className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">My Bookings</h1>
-            <p className="text-gray-600 mt-1">Manage your room reservations</p>
-          </div>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">My Bookings</h1>
+          <p className="text-gray-600 mt-1">Manage your room reservations</p>
         </div>
 
         {/* Filter Tabs */}
@@ -114,9 +113,9 @@ function MyBookingsPage({ onBack, onViewRoom }) {
                 <div key={booking.id} className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
                   <div className="flex flex-col md:flex-row">
                     {/* Room Image */}
-                    <div className="md:w-48 h-48 md:h-auto">
+                    <div className="md:w-48 h-48 md:h-auto flex-shrink-0">
                       <img
-                        src={room?.images?.[0] || '/placeholder.jpg'}
+                        src={room?.galleryImages?.[0] || room?.images?.[0] || '/placeholder.jpg'}
                         alt={booking.roomName}
                         className="w-full h-full object-cover"
                       />

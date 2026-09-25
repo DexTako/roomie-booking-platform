@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import BookingRequestCard from '../components/BookingRequestCard'
+import Breadcrumb from '../components/Breadcrumb'
 import { getAllBookings, updateBookingStatus, initializeBookings } from '../data/bookings'
 
 function HostDashboard({ onBack }) {
@@ -51,7 +52,7 @@ function HostDashboard({ onBack }) {
   const completedCount = bookings.filter(b => b.status === 'completed').length
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 py-8 pt-24">
       {/* Notification Toast */}
       {showNotification && (
         <div className="fixed top-20 right-4 z-50 animate-fade-in">
@@ -65,24 +66,19 @@ function HostDashboard({ onBack }) {
       )}
 
       <div className="container mx-auto px-4">
+        {/* Breadcrumb */}
+        <Breadcrumb
+          items={[
+            { label: 'Home', onClick: onBack },
+            { label: 'Host Dashboard' }
+          ]}
+        />
+
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">Host Dashboard</h1>
-              <p className="text-gray-600">Manage your property bookings</p>
-            </div>
-            {onBack && (
-              <button
-                onClick={onBack}
-                className="px-4 py-2 text-blue-600 hover:text-blue-700 font-medium flex items-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                Back to Homepage
-              </button>
-            )}
+          <div className="mb-4">
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">Host Dashboard</h1>
+            <p className="text-gray-600">Manage your property bookings</p>
           </div>
 
           {/* Stats Cards */}

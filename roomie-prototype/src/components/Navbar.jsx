@@ -1,357 +1,720 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
-import ConfirmModal from './ConfirmModal'
+import { useWishlist } from '../context/WishlistContext'
+import LogoutConfirmModal from './LogoutConfirmModal'
 
-function Navbar({ onNavigateToHost, onNavigateToAdmin, onNavigateToLogin, onNavigateToRegister, onNavigateToMyBookings, onNavigateToMyProfile, onNavigateToSettings, onNavigateToHowItWorks, onNavigateToContact, onNavigateToHome, onShowToast }) {
+function Navbar({
+  onNavigateToHost,
+  onNavigateToAdmin,
+  onNavigateToLogin,
+  onNavigateToRegister,
+  onNavigateToMyBookings,
+  onNavigateToWishlist,
+  onNavigateToComparison,
+  onNavigateToMyProfile,
+  onNavigateToSettings,
+  onNavigateToHowItWorks,
+  onNavigateToContact,
+  onNavigateToHome,
+  comparisonCount = 0
+}) {
   const { user, logout } = useAuth()
-  const [showUserMenu, setShowUserMenu] = useState(false)
+  const { wishlistCount } = useWishlist()
+
+  const [navVisible, setNavVisible] = useState(true)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
-  const [showMobileMenu, setShowMobileMenu] = useState(false)
 
-  const handleLogoutClick = () => {
-    setShowUserMenu(false)
-    setShowLogoutModal(true)
+  const hideTimer = useRef(null)
+
+
+  // ================= NAVBAR AUTO HIDE / SHOW =================
+  useEffect(() => {
+    const resetHideTimer = () => {
+      if (hideTimer.current) {
+        clearTimeout(hideTimer.current)
+      }
+
+      // If we are at the top, navbar should always stay visible
+      if (window.scrollY <= 20) {
+        setNavVisible(true)
+        return
+      }
+
+      // When down the page, show navbar first
+      setNavVisible(true)
+
+      // Then hide after 3 seconds if not being used
+      hideTimer.current = setTimeout(() => {
+        if (!mobileMenuOpen && window.scrollY > 20) {
+          setNavVisible(false)
+        }
+      }, 3000)
+    }
+
+
+    const handleScroll = () => {
+      // Always visible at the top
+      if (window.scrollY <= 20) {
+        if (hideTimer.current) {
+          clearTimeout(hideTimer.current)
+        }
+
+        setNavVisible(true)
+        return
+      }
+
+      resetHideTimer()
+    }
+
+
+    const handleMouseMove = () => {
+      if (window.scrollY > 20) {
+        resetHideTimer()
+      }
+    }
+
+
+    const handleTouch = () => {
+      if (window.scrollY > 20) {
+        resetHideTimer()
+      }
+    }
+
+
+    window.addEventListener('scroll', handleScroll)
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('touchstart', handleTouch)
+
+    // Initial state
+    handleScroll()
+
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('touchstart', handleTouch)
+
+      if (hideTimer.current) {
+        clearTimeout(hideTimer.current)
+      }
+    }
+  }, [mobileMenuOpen])
+
+
+  // ================= NAVIGATION =================
+  const handleBrowse = () => {
+    setMobileMenuOpen(false)
+
+    if (onNavigateToHome) {
+      onNavigateToHome()
+    }
+
+    setTimeout(() => {
+      document.getElementById('rooms')?.scrollIntoView({
+        behavior: 'smooth'
+      })
+    }, 150)
   }
 
-  const handleLogoutConfirm = () => {
-    logout()
-    setShowLogoutModal(false)
-    onShowToast('You have been logged out successfully', 'success')
-  }
-
-  const handleLogoutCancel = () => {
-    setShowLogoutModal(false)
-  }
 
   return (
-    <nav className="bg-white shadow-sm border-b">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <button 
-            onClick={onNavigateToHome}
-            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-          >
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-            </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-blue-500 to-purple-600 text-transparent bg-clip-text">
-              Roomie
-            </span>
-          </button>
+    <>
+      {/* ================= NAVBAR ================= */}
+      <header
+        className={`fixed top-0 left-0 right-0 z-50 px-4 sm:px-6 lg:px-8 pt-4 transition-all duration-500 ${
+          navVisible
+            ? 'translate-y-0 opacity-100'
+            : '-translate-y-full opacity-0'
+        }`}
+      >
 
-          {/* Navigation */}
-          <div className="hidden md:flex items-center gap-6">
-            <button 
-              onClick={onNavigateToHome}
-              className="text-gray-700 hover:text-blue-600 transition-colors"
-            >
-              Browse
-            </button>
-            
-            {/* Show Admin Dashboard only if user is an admin */}
-            {user?.role === 'admin' && (
-              <button 
-                onClick={onNavigateToAdmin}
-                className="text-gray-700 hover:text-purple-600 transition-colors font-medium flex items-center gap-1"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-                Admin
-              </button>
-            )}
-            
-            {/* Show Host Dashboard only if user is a host */}
-            {user?.role === 'host' && (
-              <button 
-                onClick={onNavigateToHost}
-                className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
-              >
-                Host Dashboard
-              </button>
-            )}
-            
-            <button 
-              onClick={onNavigateToHowItWorks}
-              className="text-gray-700 hover:text-blue-600 transition-colors"
-            >
-              How it Works
-            </button>
-            <button 
-              onClick={onNavigateToContact}
-              className="text-gray-700 hover:text-blue-600 transition-colors"
-            >
-              Contact
-            </button>
+        <nav
+          className="
+            max-w-7xl
+            mx-auto
+            rounded-2xl
+            bg-white/75
+            backdrop-blur-xl
+            border
+            border-white/50
+            shadow-xl
+            shadow-black/10
+          "
+        >
 
-            {/* Auth Buttons */}
-            {user ? (
-              // User Menu Dropdown
-              <div className="relative">
-                <button
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+          <div className="h-16 px-4 sm:px-5 flex items-center justify-between">
+
+
+            {/* ================= LOGO ================= */}
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false)
+
+                if (onNavigateToHome) {
+                  onNavigateToHome()
+                }
+              }}
+              className="flex items-center gap-2 cursor-pointer"
+            >
+
+              <div
+                className="
+                  w-9
+                  h-9
+                  rounded-lg
+                  bg-gradient-to-br
+                  from-violet-500
+                  to-indigo-600
+                  flex
+                  items-center
+                  justify-center
+                  shadow-sm
+                "
+              >
+
+                <svg
+                  className="w-5 h-5 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                    <span className="text-white font-semibold text-sm">
-                      {user.name.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                  <span className="text-gray-700 font-medium">{user.name}</span>
-                  <svg 
-                    className={`w-4 h-4 text-gray-500 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 11.5L12 4l9 7.5M5 10v10h5v-6h4v6h5V10"
+                  />
+                </svg>
 
-                {/* Dropdown Menu */}
-                {showUserMenu && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-                    <div className="px-4 py-2 border-b border-gray-100">
-                      <p className="text-sm font-semibold text-gray-900">{user.name}</p>
-                      <p className="text-xs text-gray-500">{user.email}</p>
-                      <p className="text-xs text-blue-600 mt-1 capitalize">
-                        {user.role === 'admin' ? '👑 Administrator' : user.role === 'host' ? '🏠 Host' : '👤 Renter'}
-                      </p>
-                    </div>
-                    
-                    <button 
-                      onClick={() => {
-                        setShowUserMenu(false)
-                        onNavigateToMyProfile()
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                      My Profile
-                    </button>
-                    
-                    {user.role === 'admin' && (
-                      <button 
-                        onClick={() => {
-                          setShowUserMenu(false)
-                          onNavigateToAdmin()
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                        </svg>
-                        Admin Dashboard
-                      </button>
-                    )}
-                    
-                    {user.role === 'renter' && (
-                      <button 
-                        onClick={() => {
-                          setShowUserMenu(false)
-                          onNavigateToMyBookings()
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                        </svg>
-                        My Bookings
-                      </button>
-                    )}
-                    
-                    {user.role === 'host' && (
-                      <button 
-                        onClick={() => {
-                          setShowUserMenu(false)
-                          onNavigateToHost()
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                        </svg>
-                        Host Dashboard
-                      </button>
-                    )}
-                    
-                    <button 
-                      onClick={() => {
-                        setShowUserMenu(false)
-                        onNavigateToSettings()
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      Settings
-                    </button>
-                    
-                    <div className="border-t border-gray-100 mt-2 pt-2">
-                      <button 
-                        onClick={handleLogoutClick}
-                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                        </svg>
-                        Sign Out
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
-            ) : (
-              // Login/Register Buttons
-              <>
-                <button 
-                  onClick={onNavigateToLogin}
-                  className="px-4 py-2 text-gray-700 hover:text-blue-600 font-medium transition-colors"
-                >
-                  Sign In
-                </button>
-                <button 
-                  onClick={onNavigateToRegister}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Sign Up
-                </button>
-              </>
-            )}
-          </div>
 
-          {/* Mobile Menu Button */}
-          <button 
-            onClick={() => setShowMobileMenu(!showMobileMenu)}
-            className="md:hidden p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-        </div>
 
-        {/* Mobile Menu Dropdown */}
-        {showMobileMenu && (
-          <div className="md:hidden border-t border-gray-200 py-4 space-y-2">
-            <button 
-              onClick={() => { onNavigateToHome(); setShowMobileMenu(false); }}
-              className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              Browse
+              <span className="text-xl font-bold text-indigo-500">
+                Roomie
+              </span>
+
             </button>
-            
-            {user?.role === 'admin' && (
-              <button 
-                onClick={() => { onNavigateToAdmin(); setShowMobileMenu(false); }}
-                className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2"
+
+
+
+            {/* ================= DESKTOP NAVIGATION ================= */}
+            <div className="hidden md:flex items-center gap-7">
+
+
+              {/* Browse */}
+              <button
+                type="button"
+                onClick={handleBrowse}
+                className="text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-                Admin Dashboard
+                Browse
               </button>
-            )}
-            
-            {user?.role === 'host' && (
-              <button 
-                onClick={() => { onNavigateToHost(); setShowMobileMenu(false); }}
-                className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                Host Dashboard
-              </button>
-            )}
-            
-            <button 
-              onClick={() => { onNavigateToHowItWorks(); setShowMobileMenu(false); }}
-              className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              How it Works
-            </button>
-            
-            <button 
-              onClick={() => { onNavigateToContact(); setShowMobileMenu(false); }}
-              className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              Contact
-            </button>
 
-            {user ? (
-              <>
-                <div className="border-t border-gray-200 my-2 pt-2">
-                  <div className="px-4 py-2 text-sm font-semibold text-gray-900">{user.name}</div>
-                  <div className="px-4 text-xs text-gray-500">{user.email}</div>
-                </div>
-                
-                <button 
-                  onClick={() => { onNavigateToMyProfile(); setShowMobileMenu(false); }}
-                  className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  My Profile
-                </button>
-                
-                {user.role === 'renter' && (
-                  <button 
-                    onClick={() => { onNavigateToMyBookings(); setShowMobileMenu(false); }}
-                    className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+
+              {/* How it Works */}
+              <button
+                type="button"
+                onClick={onNavigateToHowItWorks}
+                className="text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors"
+              >
+                How it Works
+              </button>
+
+
+              {/* Contact */}
+              <button
+                type="button"
+                onClick={onNavigateToContact}
+                className="text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors"
+              >
+                Contact
+              </button>
+
+
+
+              {/* ================= NOT LOGGED IN ================= */}
+              {!user && (
+                <>
+
+                  <button
+                    type="button"
+                    onClick={onNavigateToLogin}
+                    className="text-sm font-semibold text-gray-700 hover:text-indigo-600 transition-colors"
+                  >
+                    Sign In
+                  </button>
+
+
+                  <button
+                    type="button"
+                    onClick={onNavigateToRegister}
+                    className="
+                      px-5
+                      py-2.5
+                      bg-blue-600
+                      hover:bg-blue-700
+                      text-white
+                      rounded-lg
+                      text-sm
+                      font-semibold
+                      shadow-sm
+                      transition-all
+                      duration-200
+                    "
+                  >
+                    Sign Up
+                  </button>
+
+                </>
+              )}
+
+
+
+              {/* ================= LOGGED IN ================= */}
+              {user && (
+                <>
+
+                  <button
+                    type="button"
+                    onClick={onNavigateToMyBookings}
+                    className="text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors"
                   >
                     My Bookings
                   </button>
-                )}
-                
-                <button 
-                  onClick={() => { onNavigateToSettings(); setShowMobileMenu(false); }}
-                  className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+
+
+                  {/* Wishlist Button with Badge */}
+                  <button
+                    type="button"
+                    onClick={onNavigateToWishlist}
+                    className="relative text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors"
+                  >
+                    <div className="flex items-center gap-1">
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                        />
+                      </svg>
+                      Wishlist
+                    </div>
+                    {wishlistCount > 0 && (
+                      <span className="absolute -top-1 -right-2 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                        {wishlistCount}
+                      </span>
+                    )}
+                  </button>
+
+
+                  {/* Comparison Button with Badge */}
+                  <button
+                    type="button"
+                    onClick={onNavigateToComparison}
+                    className="relative text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors"
+                  >
+                    <div className="flex items-center gap-1">
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                        />
+                      </svg>
+                      Compare
+                    </div>
+                    {comparisonCount > 0 && (
+                      <span className="absolute -top-1 -right-2 w-5 h-5 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                        {comparisonCount}
+                      </span>
+                    )}
+                  </button>
+
+
+                  <button
+                    type="button"
+                    onClick={onNavigateToMyProfile}
+                    className="
+                      w-10
+                      h-10
+                      rounded-full
+                      bg-indigo-100
+                      text-indigo-600
+                      flex
+                      items-center
+                      justify-center
+                      font-bold
+                      hover:bg-indigo-200
+                      transition-colors
+                    "
+                    title={user.name}
+                  >
+                    {user.name
+                      ? user.name.charAt(0).toUpperCase()
+                      : 'U'}
+                  </button>
+
+                  {/* Logout Button */}
+                  <button
+                    type="button"
+                    onClick={() => setShowLogoutModal(true)}
+                    className="text-sm font-medium text-red-600 hover:text-red-700 transition-colors"
+                    title="Logout"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                  </button>
+
+                </>
+              )}
+
+            </div>
+
+
+
+            {/* ================= MOBILE MENU BUTTON ================= */}
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(!mobileMenuOpen)
+                setNavVisible(true)
+              }}
+              className="
+                md:hidden
+                w-10
+                h-10
+                rounded-lg
+                flex
+                items-center
+                justify-center
+                text-gray-700
+                hover:bg-white/60
+                transition
+              "
+            >
+
+              {mobileMenuOpen ? (
+
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  Settings
-                </button>
-                
-                <button 
-                  onClick={() => { setShowMobileMenu(false); setShowLogoutModal(true); }}
-                  className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+
+              ) : (
+
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  Sign Out
-                </button>
-              </>
-            ) : (
-              <>
-                <button 
-                  onClick={() => { onNavigateToLogin(); setShowMobileMenu(false); }}
-                  className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors font-medium"
-                >
-                  Sign In
-                </button>
-                <button 
-                  onClick={() => { onNavigateToRegister(); setShowMobileMenu(false); }}
-                  className="w-full mx-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-center"
-                >
-                  Sign Up
-                </button>
-              </>
-            )}
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
+                </svg>
+
+              )}
+
+            </button>
+
           </div>
-        )}
-      </div>
+
+
+
+          {/* ================= MOBILE MENU ================= */}
+          {mobileMenuOpen && (
+
+            <div
+              className="
+                md:hidden
+                px-4
+                pb-4
+                border-t
+                border-white/50
+              "
+            >
+
+              <div className="flex flex-col pt-3 gap-1">
+
+
+                {/* Browse */}
+                <button
+                  type="button"
+                  onClick={handleBrowse}
+                  className="text-left px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-white/60"
+                >
+                  Browse
+                </button>
+
+
+                {/* How it Works */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false)
+                    onNavigateToHowItWorks?.()
+                  }}
+                  className="text-left px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-white/60"
+                >
+                  How it Works
+                </button>
+
+
+                {/* Contact */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false)
+                    onNavigateToContact?.()
+                  }}
+                  className="text-left px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-white/60"
+                >
+                  Contact
+                </button>
+
+
+
+                {/* ================= NOT LOGGED IN ================= */}
+                {!user ? (
+                  <>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileMenuOpen(false)
+                        onNavigateToLogin?.()
+                      }}
+                      className="text-left px-4 py-3 rounded-lg text-sm font-semibold text-gray-700 hover:bg-white/60"
+                    >
+                      Sign In
+                    </button>
+
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileMenuOpen(false)
+                        onNavigateToRegister?.()
+                      }}
+                      className="mt-2 px-4 py-3 bg-blue-600 text-white rounded-lg text-sm font-semibold"
+                    >
+                      Sign Up
+                    </button>
+
+                  </>
+                ) : (
+
+                  <>
+
+                    {/* My Bookings */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileMenuOpen(false)
+                        onNavigateToMyBookings?.()
+                      }}
+                      className="text-left px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-white/60"
+                    >
+                      My Bookings
+                    </button>
+
+
+                    {/* Wishlist */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileMenuOpen(false)
+                        onNavigateToWishlist?.()
+                      }}
+                      className="text-left px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-white/60 flex items-center justify-between"
+                    >
+                      <span className="flex items-center gap-2">
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                          />
+                        </svg>
+                        Wishlist
+                      </span>
+                      {wishlistCount > 0 && (
+                        <span className="w-6 h-6 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                          {wishlistCount}
+                        </span>
+                      )}
+                    </button>
+
+
+                    {/* Compare */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileMenuOpen(false)
+                        onNavigateToComparison?.()
+                      }}
+                      className="text-left px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-white/60 flex items-center justify-between"
+                    >
+                      <span className="flex items-center gap-2">
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                          />
+                        </svg>
+                        Compare
+                      </span>
+                      {comparisonCount > 0 && (
+                        <span className="w-6 h-6 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                          {comparisonCount}
+                        </span>
+                      )}
+                    </button>
+
+
+                    {/* My Profile */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileMenuOpen(false)
+                        onNavigateToMyProfile?.()
+                      }}
+                      className="text-left px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-white/60"
+                    >
+                      My Profile
+                    </button>
+
+
+                    {/* Settings */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileMenuOpen(false)
+                        onNavigateToSettings?.()
+                      }}
+                      className="text-left px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-white/60"
+                    >
+                      Settings
+                    </button>
+
+
+                    {/* Host Dashboard */}
+                    {user.role === 'host' && (
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMobileMenuOpen(false)
+                          onNavigateToHost?.()
+                        }}
+                        className="text-left px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-white/60"
+                      >
+                        Host Dashboard
+                      </button>
+
+                    )}
+
+
+                    {/* Admin Dashboard */}
+                    {user.role === 'admin' && (
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMobileMenuOpen(false)
+                          onNavigateToAdmin?.()
+                        }}
+                        className="text-left px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-white/60"
+                      >
+                        Admin Dashboard
+                      </button>
+
+                    )}
+
+                    {/* Logout */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileMenuOpen(false)
+                        setShowLogoutModal(true)
+                      }}
+                      className="text-left px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50"
+                    >
+                      <span className="flex items-center gap-2">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        Logout
+                      </span>
+                    </button>
+
+                  </>
+
+                )}
+
+              </div>
+
+            </div>
+
+          )}
+
+        </nav>
+
+      </header>
 
       {/* Logout Confirmation Modal */}
-      <ConfirmModal
-        isOpen={showLogoutModal}
-        title="Sign Out"
-        message="Are you sure you want to sign out? You'll need to log in again to access your account."
-        confirmText="Sign Out"
-        cancelText="Cancel"
-        type="danger"
-        onConfirm={handleLogoutConfirm}
-        onCancel={handleLogoutCancel}
-      />
-    </nav>
+      {showLogoutModal && (
+        <LogoutConfirmModal
+          userName={user?.name}
+          onConfirm={() => {
+            logout()
+            setShowLogoutModal(false)
+            onNavigateToHome?.()
+          }}
+          onCancel={() => setShowLogoutModal(false)}
+        />
+      )}
+    </>
   )
 }
 

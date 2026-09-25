@@ -803,8 +803,8 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
       }}
     >
       {/* Status Badge */}
-      <div className="absolute top-4 left-4 z-10">
-        <div className={`px-4 py-2 rounded-full font-semibold text-sm shadow-lg ${
+      <div className="absolute top-2 left-2 md:top-4 md:left-4 z-10">
+        <div className={`px-2 py-1 md:px-4 md:py-2 rounded-full font-semibold text-xs md:text-sm shadow-lg ${
           isBooked 
             ? 'bg-red-500 text-white' 
             : 'bg-green-500 text-white'
@@ -813,10 +813,10 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
         </div>
       </div>
 
-      {/* Room Navigation Buttons - Only in Orbit Mode and if waypoints exist */}
+      {/* Room Navigation Buttons - Compact on Mobile */}
       {!isWalkMode && hasWaypoints && (
-        <div className="absolute top-20 left-4 z-10 space-y-2">
-          <div className="bg-black/80 text-white px-3 py-2 rounded-lg text-xs font-semibold mb-2">
+        <div className="absolute top-12 md:top-20 left-2 md:left-4 z-10 space-y-1 md:space-y-2 max-w-[120px] md:max-w-none">
+          <div className="bg-black/80 text-white px-2 md:px-3 py-1 md:py-2 rounded-lg text-[10px] md:text-xs font-semibold mb-1 md:mb-2">
             🏠 Quick Tour
           </div>
           {Object.keys(waypoints).map((roomName) => (
@@ -824,7 +824,7 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
               key={roomName}
               onClick={() => handleWaypointClick(roomName)}
               disabled={isTransitioning}
-              className={`block w-full px-3 py-2 rounded-lg text-xs font-medium shadow-lg transition-colors ${
+              className={`block w-full px-2 md:px-3 py-1.5 md:py-2 rounded-lg text-[10px] md:text-xs font-medium shadow-lg transition-colors ${
                 isTransitioning
                   ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
                   : 'bg-blue-500 hover:bg-blue-600 text-white'
@@ -836,42 +836,48 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
         </div>
       )}
 
-      {/* Walk Mode Toggle Button */}
-      <div className="absolute bottom-20 left-4 z-10 flex gap-2">
+      {/* Walk Mode Toggle & Reset Buttons - Horizontal on Mobile */}
+      <div className="absolute bottom-16 md:bottom-20 left-2 md:left-4 right-2 md:right-auto z-10 flex gap-1 md:gap-2">
         <button
           onClick={toggleWalkMode}
-          className={`px-4 py-2 rounded-lg font-semibold text-sm shadow-lg transition-colors ${
+          className={`flex-1 md:flex-none px-2 md:px-4 py-1.5 md:py-2 rounded-lg font-semibold text-[10px] md:text-sm shadow-lg transition-colors ${
             isWalkMode
               ? 'bg-purple-500 hover:bg-purple-600 text-white'
               : 'bg-gray-700 hover:bg-gray-800 text-white'
           }`}
         >
-          {isWalkMode ? '🔄 Orbit Mode' : '🚶 Walk Mode'}
+          <span className="md:hidden">{isWalkMode ? '🔄 Orbit' : '🚶 Walk'}</span>
+          <span className="hidden md:inline">{isWalkMode ? '🔄 Orbit Mode' : '🚶 Walk Mode'}</span>
         </button>
         
-        {/* Reset Furniture Button - Only show if physics enabled */}
+        {/* Reset Furniture Button - Icon only on mobile */}
         {enablePhysics && draggableFurniture && (
           <button
             onClick={handleResetFurniture}
-            className="px-4 py-2 rounded-lg font-semibold text-sm shadow-lg transition-colors bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-2"
+            className="flex-1 md:flex-none px-2 md:px-4 py-1.5 md:py-2 rounded-lg font-semibold text-[10px] md:text-sm shadow-lg transition-colors bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center gap-1 md:gap-2"
+            title="Reset Furniture"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3 h-3 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Reset Furniture
+            <span className="hidden md:inline">Reset Furniture</span>
           </button>
         )}
       </div>
 
-      {/* Walk Mode Instructions */}
+      {/* Walk Mode Instructions - Simplified on Mobile */}
       {isWalkMode && (
-        <div className="absolute top-20 left-4 z-10 bg-purple-600/90 text-white px-4 py-3 rounded-lg text-xs shadow-lg">
-          <div className="font-semibold mb-1">🚶 Walk Mode Active</div>
-          <div>• WASD or Arrow Keys to move</div>
-          <div>• E/Space to go up</div>
-          <div>• Q/Shift to go down</div>
-          <div>• Click to lock mouse</div>
-          <div>• <span className="font-bold text-yellow-300">ESC to unlock (for screenshots/scrolling)</span></div>
+        <div className="absolute top-12 md:top-20 left-2 md:left-4 z-10 bg-purple-600/90 text-white px-2 md:px-4 py-2 md:py-3 rounded-lg text-[9px] md:text-xs shadow-lg max-w-[140px] md:max-w-none">
+          <div className="font-semibold mb-1">🚶 Walk Mode</div>
+          <div className="hidden md:block">• WASD or Arrow Keys to move</div>
+          <div className="hidden md:block">• E/Space to go up</div>
+          <div className="hidden md:block">• Q/Shift to go down</div>
+          <div className="md:hidden">• WASD / Arrows</div>
+          <div className="md:hidden">• E/Space: up</div>
+          <div className="md:hidden">• Q/Shift: down</div>
+          <div>• Click to lock</div>
+          <div className="hidden md:block">• <span className="font-bold text-yellow-300">ESC to unlock</span></div>
+          <div className="md:hidden text-yellow-300 font-bold">• ESC unlock</div>
         </div>
       )}
 
@@ -1036,17 +1042,19 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
         </Canvas>
       </Suspense>
 
-      {/* Instructions */}
-      <div className="absolute bottom-4 left-4 right-4 bg-black/70 text-white px-4 py-2 rounded-lg text-sm">
+      {/* Instructions - Hidden on mobile, compact on tablet */}
+      <div className="hidden md:block absolute bottom-4 left-4 right-4 bg-black/70 text-white px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm">
         <p className="flex items-center gap-2">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          {isWalkMode 
-            ? 'Walk Mode: Use WASD to move • Mouse to look • Click to lock pointer • ESC to unlock'
-            : 'Orbit Mode: Drag to rotate • Scroll to zoom • Right-drag to pan' + (hasWaypoints ? ' • Click room buttons for quick tour' : '')
-          }
-          {isDebugMode && <span className="ml-2 text-yellow-300">• Debug coordinates enabled</span>}
+          <span className="truncate">
+            {isWalkMode 
+              ? 'Walk Mode: Use WASD to move • Mouse to look • Click to lock pointer • ESC to unlock'
+              : 'Orbit Mode: Drag to rotate • Scroll to zoom • Right-drag to pan' + (hasWaypoints ? ' • Click room buttons for quick tour' : '')
+            }
+            {isDebugMode && <span className="ml-2 text-yellow-300">• Debug coordinates enabled</span>}
+          </span>
         </p>
       </div>
     </div>

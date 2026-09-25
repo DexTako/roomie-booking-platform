@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import RoomViewer from '../components/RoomViewer'
 import RoomGallery from '../components/RoomGallery'
-import BookingForm from '../components/BookingForm'
-import ReviewList from '../components/ReviewList'
+import BookingWizard from '../components/BookingWizard'
+import ReviewsSection from '../components/ReviewsSection'
 import AddReview from '../components/AddReview'
 import StarRating from '../components/StarRating'
+import Breadcrumb from '../components/Breadcrumb'
 import { 
   getReviewsByRoom, 
   calculateAverageRating, 
@@ -20,6 +21,7 @@ function RoomDetailPage({ room, onBack }) {
   const [isBooked, setIsBooked] = useState(false)
   const [bookingData, setBookingData] = useState(null)
   const [show3DView, setShow3DView] = useState(false)
+  const [showBookingWizard, setShowBookingWizard] = useState(false)
   const [reviews, setReviews] = useState([])
   const [averageRating, setAverageRating] = useState(0)
   const [categoryAverages, setCategoryAverages] = useState(null)
@@ -51,51 +53,44 @@ function RoomDetailPage({ room, onBack }) {
     alert('Thank you for your review! It has been posted successfully.')
   }
 
-  const handleBooking = (formData) => {
+  const handleBooking = (bookingFormData) => {
     // Check if user is logged in
     if (!user) {
       alert('Please login to make a booking.')
       return
     }
 
-    // Calculate nights and pricing
-    const checkIn = new Date(formData.checkIn)
-    const checkOut = new Date(formData.checkOut)
-    const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
-    const subtotal = nights * room.pricePerNight
-    const serviceFee = subtotal * 0.05 // 5% service fee
-    const totalPrice = subtotal + serviceFee
-
     // Create booking object
     const newBooking = {
       roomId: room.id,
       roomName: room.name,
       renterId: user.id,
-      renterName: user.name,
-      renterEmail: user.email,
-      renterPhone: user.phone || '',
-      checkIn: formData.checkIn,
-      checkOut: formData.checkOut,
-      guests: room.capacity,
+      renterName: bookingFormData.guestName,
+      renterEmail: bookingFormData.guestEmail,
+      renterPhone: bookingFormData.guestPhone || '',
+      checkIn: bookingFormData.checkIn,
+      checkOut: bookingFormData.checkOut,
+      guests: bookingFormData.guests,
       pricePerNight: room.pricePerNight,
-      nights,
-      subtotal,
-      serviceFee,
-      totalPrice,
-      specialRequests: formData.specialRequests || ''
+      nights: bookingFormData.nights,
+      subtotal: bookingFormData.nights * room.pricePerNight,
+      serviceFee: bookingFormData.nights * room.pricePerNight * 0.1,
+      totalPrice: bookingFormData.total,
+      specialRequests: bookingFormData.specialRequests || ''
     }
 
     // Add booking to localStorage store
     const result = addBooking(newBooking)
     
     if (!result.success) {
-      // Show error if dates overlap
       alert(result.error)
       return
     }
     
     setBookingData(result.booking)
     setIsBooked(true)
+    setShowBookingWizard(false)
+    alert('🎉 Booking confirmed! Check your email for details.')
   }
 
   const handleCancelBooking = () => {
@@ -106,19 +101,17 @@ function RoomDetailPage({ room, onBack }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Back Button */}
+    <div className="min-h-screen bg-gray-50 pt-24">
+      {/* Header with Breadcrumb */}
       <div className="bg-white border-b shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 text-gray-700 hover:text-blue-600 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            <span className="font-medium">Back to All Rooms</span>
-          </button>
+        <div className="container mx-auto px-4 py-6">
+          <Breadcrumb
+            items={[
+              { label: 'Home', onClick: onBack },
+              { label: 'Browse Rooms', onClick: onBack },
+              { label: room.name }
+            ]}
+          />
         </div>
       </div>
 
@@ -289,10 +282,23 @@ function RoomDetailPage({ room, onBack }) {
                   </button>
                 </div>
               ) : (
-                <BookingForm 
-                  pricePerNight={room.pricePerNight}
-                  onSubmit={handleBooking}
-                />
+                <div>
+                  <div className="mb-6">
+                    <div className="text-center mb-4">
+                      <span className="text-4xl font-bold text-gray-900">${room.pricePerNight}</span>
+                      <span className="text-gray-600"> / night</span>
+                    </div>
+                    <button
+                      onClick={() => user ? setShowBookingWizard(true) : alert('Please login to book')}
+                      className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5"
+                    >
+                      Book Now
+                    </button>
+                  </div>
+                  <div className="text-center text-sm text-gray-500">
+                    You won't be charged yet
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -332,31 +338,22 @@ function RoomDetailPage({ room, onBack }) {
             </div>
           )}
 
-          {/* Reviews List or Empty State */}
-          {reviews.length > 0 ? (
-            <ReviewList
-              reviews={reviews}
-              averageRating={averageRating}
-              totalReviews={reviews.length}
-              categoryAverages={categoryAverages}
-            />
-          ) : (
-            <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-              <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-              </svg>
-              <h3 className="text-xl font-semibold text-gray-700 mb-2">No reviews yet</h3>
-              <p className="text-gray-600 mb-6">Be the first to share your experience with this property!</p>
-              <button
-                onClick={() => setShowAddReview(true)}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition-colors"
-              >
-                Write the First Review
-              </button>
-            </div>
-          )}
+          {/* Reviews Section */}
+          <ReviewsSection 
+            roomId={room.id}
+            onShowToast={(message, type) => console.log(message)}
+          />
         </div>
       </main>
+
+      {/* Booking Wizard Modal */}
+      {showBookingWizard && (
+        <BookingWizard
+          room={room}
+          onClose={() => setShowBookingWizard(false)}
+          onComplete={handleBooking}
+        />
+      )}
     </div>
   )
 }
