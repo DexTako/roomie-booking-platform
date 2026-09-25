@@ -454,23 +454,25 @@ function Navbar({
             <div
               className="
                 md:hidden
-                px-4
-                pb-4
+                px-2
+                pb-safe
                 border-t
                 border-white/50
+                max-h-[calc(100vh-5rem)]
+                overflow-y-auto
               "
             >
 
-              <div className="flex flex-col pt-3 gap-1">
+              <div className="flex flex-col pt-2 gap-0.5 pb-2">
 
 
                 {/* Browse */}
                 <button
                   type="button"
                   onClick={handleBrowse}
-                  className="text-left px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-white/60"
+                  className="text-left px-3 py-3.5 rounded-lg text-base font-medium text-gray-700 hover:bg-white/60 active:bg-white/80 transition-colors"
                 >
-                  Browse
+                  Browse Rooms
                 </button>
 
 
@@ -481,7 +483,7 @@ function Navbar({
                     setMobileMenuOpen(false)
                     onNavigateToHowItWorks?.()
                   }}
-                  className="text-left px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-white/60"
+                  className="text-left px-3 py-3.5 rounded-lg text-base font-medium text-gray-700 hover:bg-white/60 active:bg-white/80 transition-colors"
                 >
                   How it Works
                 </button>
@@ -494,7 +496,7 @@ function Navbar({
                     setMobileMenuOpen(false)
                     onNavigateToContact?.()
                   }}
-                  className="text-left px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-white/60"
+                  className="text-left px-3 py-3.5 rounded-lg text-base font-medium text-gray-700 hover:bg-white/60 active:bg-white/80 transition-colors"
                 >
                   Contact
                 </button>
@@ -505,13 +507,15 @@ function Navbar({
                 {!user ? (
                   <>
 
+                    <div className="h-px bg-gray-200 my-2"></div>
+
                     <button
                       type="button"
                       onClick={() => {
                         setMobileMenuOpen(false)
                         onNavigateToLogin?.()
                       }}
-                      className="text-left px-4 py-3 rounded-lg text-sm font-semibold text-gray-700 hover:bg-white/60"
+                      className="text-left px-3 py-3.5 rounded-lg text-base font-semibold text-gray-700 hover:bg-white/60 active:bg-white/80 transition-colors"
                     >
                       Sign In
                     </button>
@@ -523,7 +527,7 @@ function Navbar({
                         setMobileMenuOpen(false)
                         onNavigateToRegister?.()
                       }}
-                      className="mt-2 px-4 py-3 bg-blue-600 text-white rounded-lg text-sm font-semibold"
+                      className="mt-1 px-3 py-3.5 bg-blue-600 text-white rounded-lg text-base font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors"
                     >
                       Sign Up
                     </button>
@@ -533,6 +537,8 @@ function Navbar({
 
                   <>
 
+                    <div className="h-px bg-gray-200 my-2"></div>
+
                     {/* My Bookings */}
                     <button
                       type="button"
@@ -540,7 +546,7 @@ function Navbar({
                         setMobileMenuOpen(false)
                         onNavigateToMyBookings?.()
                       }}
-                      className="text-left px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-white/60"
+                      className="text-left px-3 py-3.5 rounded-lg text-base font-medium text-gray-700 hover:bg-white/60 active:bg-white/80 transition-colors"
                     >
                       My Bookings
                     </button>
@@ -553,9 +559,9 @@ function Navbar({
                         setMobileMenuOpen(false)
                         onNavigateToWishlist?.()
                       }}
-                      className="text-left px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-white/60 flex items-center justify-between"
+                      className="text-left px-3 py-3.5 rounded-lg text-base font-medium text-gray-700 hover:bg-white/60 active:bg-white/80 flex items-center justify-between transition-colors"
                     >
-                      <span className="flex items-center gap-2">
+                      <span className="flex items-center gap-3">
                         <svg
                           className="w-5 h-5"
                           fill="none"
@@ -572,7 +578,7 @@ function Navbar({
                         Wishlist
                       </span>
                       {wishlistCount > 0 && (
-                        <span className="w-6 h-6 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                        <span className="min-w-[28px] h-7 bg-red-500 text-white text-sm font-bold rounded-full flex items-center justify-center px-2">
                           {wishlistCount}
                         </span>
                       )}
@@ -586,9 +592,9 @@ function Navbar({
                         setMobileMenuOpen(false)
                         onNavigateToComparison?.()
                       }}
-                      className="text-left px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-white/60 flex items-center justify-between"
+                      className="text-left px-3 py-3.5 rounded-lg text-base font-medium text-gray-700 hover:bg-white/60 active:bg-white/80 flex items-center justify-between transition-colors"
                     >
-                      <span className="flex items-center gap-2">
+                      <span className="flex items-center gap-3">
                         <svg
                           className="w-5 h-5"
                           fill="none"
@@ -605,7 +611,7 @@ function Navbar({
                         Compare
                       </span>
                       {comparisonCount > 0 && (
-                        <span className="w-6 h-6 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                        <span className="min-w-[28px] h-7 bg-blue-500 text-white text-sm font-bold rounded-full flex items-center justify-center px-2">
                           {comparisonCount}
                         </span>
                       )}
@@ -619,7 +625,7 @@ function Navbar({
                         setMobileMenuOpen(false)
                         onNavigateToMyProfile?.()
                       }}
-                      className="text-left px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-white/60"
+                      className="text-left px-3 py-3.5 rounded-lg text-base font-medium text-gray-700 hover:bg-white/60 active:bg-white/80 transition-colors"
                     >
                       My Profile
                     </button>
@@ -632,7 +638,7 @@ function Navbar({
                         setMobileMenuOpen(false)
                         onNavigateToSettings?.()
                       }}
-                      className="text-left px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-white/60"
+                      className="text-left px-3 py-3.5 rounded-lg text-base font-medium text-gray-700 hover:bg-white/60 active:bg-white/80 transition-colors"
                     >
                       Settings
                     </button>
@@ -647,7 +653,7 @@ function Navbar({
                           setMobileMenuOpen(false)
                           onNavigateToHost?.()
                         }}
-                        className="text-left px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-white/60"
+                        className="text-left px-3 py-3.5 rounded-lg text-base font-medium text-gray-700 hover:bg-white/60 active:bg-white/80 transition-colors"
                       >
                         Host Dashboard
                       </button>
@@ -664,12 +670,14 @@ function Navbar({
                           setMobileMenuOpen(false)
                           onNavigateToAdmin?.()
                         }}
-                        className="text-left px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-white/60"
+                        className="text-left px-3 py-3.5 rounded-lg text-base font-medium text-gray-700 hover:bg-white/60 active:bg-white/80 transition-colors"
                       >
                         Admin Dashboard
                       </button>
 
                     )}
+
+                    <div className="h-px bg-gray-200 my-2"></div>
 
                     {/* Logout */}
                     <button
@@ -678,9 +686,9 @@ function Navbar({
                         setMobileMenuOpen(false)
                         setShowLogoutModal(true)
                       }}
-                      className="text-left px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50"
+                      className="text-left px-3 py-3.5 rounded-lg text-base font-semibold text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors"
                     >
-                      <span className="flex items-center gap-2">
+                      <span className="flex items-center gap-3">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                         </svg>

@@ -867,17 +867,122 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
 
       {/* Walk Mode Instructions - Simplified on Mobile */}
       {isWalkMode && (
-        <div className="absolute top-12 md:top-20 left-2 md:left-4 z-10 bg-purple-600/90 text-white px-2 md:px-4 py-2 md:py-3 rounded-lg text-[9px] md:text-xs shadow-lg max-w-[140px] md:max-w-none">
+        <div className="absolute top-12 md:top-20 left-2 md:left-4 z-10 bg-purple-600/90 text-white px-2 md:px-4 py-2 md:py-3 rounded-lg text-[9px] md:text-xs shadow-lg max-w-[200px] md:max-w-none">
           <div className="font-semibold mb-1">🚶 Walk Mode</div>
           <div className="hidden md:block">• WASD or Arrow Keys to move</div>
           <div className="hidden md:block">• E/Space to go up</div>
           <div className="hidden md:block">• Q/Shift to go down</div>
-          <div className="md:hidden">• WASD / Arrows</div>
-          <div className="md:hidden">• E/Space: up</div>
-          <div className="md:hidden">• Q/Shift: down</div>
-          <div>• Click to lock</div>
+          <div className="md:hidden">• Use on-screen controls</div>
+          <div className="md:hidden">• Drag screen to look</div>
+          <div>• Click to lock pointer</div>
           <div className="hidden md:block">• <span className="font-bold text-yellow-300">ESC to unlock</span></div>
-          <div className="md:hidden text-yellow-300 font-bold">• ESC unlock</div>
+          <div className="md:hidden text-yellow-300 font-bold">• Tap Exit Walk</div>
+        </div>
+      )}
+
+      {/* Mobile Touch Controls for Walk Mode */}
+      {isWalkMode && (
+        <div className="md:hidden absolute bottom-4 left-4 right-4 z-20 flex items-end justify-between gap-4">
+          {/* Virtual D-Pad */}
+          <div className="relative w-32 h-32 bg-black/50 backdrop-blur-sm rounded-full border-2 border-white/30">
+            {/* Center indicator */}
+            <div className="absolute top-1/2 left-1/2 w-6 h-6 bg-white/40 rounded-full -translate-x-1/2 -translate-y-1/2"></div>
+            
+            {/* Up */}
+            <button
+              onTouchStart={() => {
+                const event = new KeyboardEvent('keydown', { key: 'w' });
+                document.dispatchEvent(event);
+              }}
+              onTouchEnd={() => {
+                const event = new KeyboardEvent('keyup', { key: 'w' });
+                document.dispatchEvent(event);
+              }}
+              className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-12 bg-white/70 hover:bg-white/90 active:bg-white rounded-t-full flex items-center justify-center text-black font-bold text-sm"
+            >
+              ↑
+            </button>
+            
+            {/* Down */}
+            <button
+              onTouchStart={() => {
+                const event = new KeyboardEvent('keydown', { key: 's' });
+                document.dispatchEvent(event);
+              }}
+              onTouchEnd={() => {
+                const event = new KeyboardEvent('keyup', { key: 's' });
+                document.dispatchEvent(event);
+              }}
+              className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-12 bg-white/70 hover:bg-white/90 active:bg-white rounded-b-full flex items-center justify-center text-black font-bold text-sm"
+            >
+              ↓
+            </button>
+            
+            {/* Left */}
+            <button
+              onTouchStart={() => {
+                const event = new KeyboardEvent('keydown', { key: 'a' });
+                document.dispatchEvent(event);
+              }}
+              onTouchEnd={() => {
+                const event = new KeyboardEvent('keyup', { key: 'a' });
+                document.dispatchEvent(event);
+              }}
+              className="absolute left-0 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/70 hover:bg-white/90 active:bg-white rounded-l-full flex items-center justify-center text-black font-bold text-sm"
+            >
+              ←
+            </button>
+            
+            {/* Right */}
+            <button
+              onTouchStart={() => {
+                const event = new KeyboardEvent('keydown', { key: 'd' });
+                document.dispatchEvent(event);
+              }}
+              onTouchEnd={() => {
+                const event = new KeyboardEvent('keyup', { key: 'd' });
+                document.dispatchEvent(event);
+              }}
+              className="absolute right-0 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/70 hover:bg-white/90 active:bg-white rounded-r-full flex items-center justify-center text-black font-bold text-sm"
+            >
+              →
+            </button>
+          </div>
+
+          {/* Action Buttons (Up/Down) */}
+          <div className="flex flex-col gap-2">
+            {/* Up button */}
+            <button
+              onTouchStart={() => {
+                const event = new KeyboardEvent('keydown', { key: 'e' });
+                document.dispatchEvent(event);
+              }}
+              onTouchEnd={() => {
+                const event = new KeyboardEvent('keyup', { key: 'e' });
+                document.dispatchEvent(event);
+              }}
+              className="w-14 h-14 bg-green-500/80 hover:bg-green-500 active:bg-green-600 rounded-full flex flex-col items-center justify-center text-white font-bold text-xs shadow-lg border-2 border-white/30"
+            >
+              <span className="text-lg">↑</span>
+              <span className="text-[8px]">UP</span>
+            </button>
+            
+            {/* Down button */}
+            <button
+              onTouchStart={() => {
+                const event = new KeyboardEvent('keydown', { key: 'q' });
+                document.dispatchEvent(event);
+              }}
+              onTouchEnd={() => {
+                const event = new KeyboardEvent('keyup', { key: 'q' });
+                document.dispatchEvent(event);
+              }}
+              className="w-14 h-14 bg-red-500/80 hover:bg-red-500 active:bg-red-600 rounded-full flex flex-col items-center justify-center text-white font-bold text-xs shadow-lg border-2 border-white/30"
+            >
+              <span className="text-lg">↓</span>
+              <span className="text-[8px]">DOWN</span>
+            </button>
+          </div>
         </div>
       )}
 

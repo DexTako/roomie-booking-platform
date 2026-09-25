@@ -74,27 +74,30 @@ function RoomGallery({ images, onTryMe }) {
           {currentIndex + 1} / {images.length}
         </div>
 
-        {/* Try Me Button - Prominent and Exciting */}
+        {/* Try Me Button - Responsive and Mobile-Friendly */}
         {onTryMe && (
           <button
             onClick={onTryMe}
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 group"
+            className="absolute bottom-3 md:bottom-6 left-1/2 -translate-x-1/2 group z-10"
           >
             <div className="relative">
-              {/* Glow effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full blur-xl opacity-75 group-hover:opacity-100 transition-opacity animate-pulse"></div>
+              {/* Glow effect - subtle on mobile */}
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full blur-lg md:blur-xl opacity-60 md:opacity-75 group-hover:opacity-100 transition-opacity animate-pulse"></div>
               
-              {/* Button */}
-              <div className="relative px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full shadow-2xl group-hover:shadow-blue-500/50 transition-all transform group-hover:scale-105">
-                <div className="flex items-center gap-3">
-                  <svg className="w-6 h-6 text-white animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {/* Button - Compact on mobile, larger on desktop */}
+              <div className="relative px-3 py-2 md:px-8 md:py-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full shadow-xl md:shadow-2xl group-hover:shadow-blue-500/50 transition-all transform group-hover:scale-105 active:scale-95">
+                <div className="flex items-center gap-1.5 md:gap-3">
+                  {/* Icon */}
+                  <svg className="w-4 h-4 md:w-6 md:h-6 text-white animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <span className="text-white font-bold text-lg uppercase tracking-wider">
+                  {/* Text */}
+                  <span className="text-white font-bold text-xs md:text-lg uppercase tracking-wide md:tracking-wider">
                     Try 3D Tour
                   </span>
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {/* Arrow - hidden on small mobile */}
+                  <svg className="hidden sm:block w-4 h-4 md:w-5 md:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
                 </div>
