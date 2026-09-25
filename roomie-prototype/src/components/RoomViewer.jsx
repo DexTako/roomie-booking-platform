@@ -168,6 +168,64 @@ function WalkControls({ moveSpeed, enabled, onCoordinateUpdate }) {
   return null
 }
 
+// Mobile touch camera control for walk mode
+function MobileTouchCamera({ enabled }) {
+  const { camera, gl } = useThree()
+  const [lastTouch, setLastTouch] = useState(null)
+  const euler = useRef(new THREE.Euler(0, 0, 0, 'YXZ'))
+  
+  useEffect(() => {
+    if (!enabled) return
+    
+    const canvas = gl.domElement
+    const sensitivity = 0.002
+    
+    const handleTouchStart = (e) => {
+      if (e.touches.length === 1) {
+        setLastTouch({
+          x: e.touches[0].clientX,
+          y: e.touches[0].clientY
+        })
+      }
+    }
+    
+    const handleTouchMove = (e) => {
+      if (e.touches.length === 1 && lastTouch) {
+        const deltaX = e.touches[0].clientX - lastTouch.x
+        const deltaY = e.touches[0].clientY - lastTouch.y
+        
+        euler.current.setFromQuaternion(camera.quaternion)
+        euler.current.y -= deltaX * sensitivity
+        euler.current.x -= deltaY * sensitivity
+        euler.current.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.current.x))
+        
+        camera.quaternion.setFromEuler(euler.current)
+        
+        setLastTouch({
+          x: e.touches[0].clientX,
+          y: e.touches[0].clientY
+        })
+      }
+    }
+    
+    const handleTouchEnd = () => {
+      setLastTouch(null)
+    }
+    
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: true })
+    canvas.addEventListener('touchmove', handleTouchMove, { passive: true })
+    canvas.addEventListener('touchend', handleTouchEnd, { passive: true })
+    
+    return () => {
+      canvas.removeEventListener('touchstart', handleTouchStart)
+      canvas.removeEventListener('touchmove', handleTouchMove)
+      canvas.removeEventListener('touchend', handleTouchEnd)
+    }
+  }, [enabled, camera, gl, lastTouch])
+  
+  return null
+}
+
 // Live coordinate tracker for both modes
 function LiveCoordinateTracker({ isWalkMode, controlsRef, onCoordinateUpdate }) {
   const { camera } = useThree()
@@ -874,7 +932,7 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
           <div className="hidden md:block">• Q/Shift to go down</div>
           <div className="md:hidden">• Use on-screen controls</div>
           <div className="md:hidden">• Drag screen to look</div>
-          <div>• Click to lock pointer</div>
+          <div className="hidden md:block">• Click to lock pointer</div>
           <div className="hidden md:block">• <span className="font-bold text-yellow-300">ESC to unlock</span></div>
           <div className="md:hidden text-yellow-300 font-bold">• Tap Exit Walk</div>
         </div>
@@ -1202,6 +1260,7 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
                 enabled={isWalkMode}
                 onCoordinateUpdate={updateCoordinates}
               />
+              <MobileTouchCamera enabled={isWalkMode} />
             </>
           ) : (
             <OrbitControls
@@ -1233,7 +1292,7 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
           </svg>
           <span className="truncate">
             {isWalkMode 
-              ? 'Walk Mode: Use WASD to move • Mouse to look • Click to lock pointer • ESC to unlock'
+              ? 'Walk Mode: Use WASD to move • Mouse to look • ESC to unlock'
               : 'Orbit Mode: Drag to rotate • Scroll to zoom • Right-drag to pan' + (hasWaypoints ? ' • Click room buttons for quick tour' : '')
             }
             {isDebugMode && <span className="ml-2 text-yellow-300">• Debug coordinates enabled</span>}
