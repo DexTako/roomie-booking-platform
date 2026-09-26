@@ -12,6 +12,7 @@ import ComparisonPage from './pages/ComparisonPage'
 import SettingsPage from './pages/SettingsPage'
 import HowItWorksPage from './pages/HowItWorksPage'
 import ContactPage from './pages/ContactPage'
+import NotFoundPage from './pages/NotFoundPage'
 import Navbar from './components/Navbar'
 import LoadingScreen from './components/LoadingScreen'
 import Toast from './components/Toast'
@@ -40,6 +41,15 @@ function App() {
 
   // SELECT ROOM
   const handleSelectRoom = roomId => {
+    const room = getRoomById(roomId)
+    
+    // If room doesn't exist, show 404
+    if (!room) {
+      setCurrentView('notFound')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+
     setSelectedRoomId(roomId)
     setCurrentView('detail')
 
@@ -379,6 +389,12 @@ function App() {
           onShowToast={showToast}
         />
 
+      ) : currentView === 'notFound' ? (
+
+        <NotFoundPage
+          onNavigateToHome={handleBackToHome}
+        />
+
       ) : (
 
         selectedRoom && (
@@ -406,7 +422,8 @@ function App() {
         'login',
         'register',
         'howItWorks',
-        'contact'
+        'contact',
+        'notFound'
       ].includes(currentView) && (
 
         <footer className="mt-16 bg-gray-800 text-white py-8">
