@@ -1,10 +1,19 @@
-import { Suspense, useEffect, useState, useRef } from 'react'
+import { Suspense, useEffect, useState, useRef, useCallback } from 'react'
 import { Canvas, useThree, useFrame } from '@react-three/fiber'
 import { OrbitControls, PointerLockControls, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
+import {
+  extractMovableItem,
+  buildItemGrid,
+  buildWalkGrid,
+  moveItemWithCollision,
+  moveWalkerWithCollision,
+  walkPositionFree,
+  findNearestFree
+} from '../utils/roomPhysics'
 
 // Walk mode controls component
-function WalkControls({ moveSpeed, enabled, onCoordinateUpdate }) {
+function WalkControls({ moveSpeed, enabled, onCoordinateUpdate, walkGrid, bounds }) {
   const { camera } = useThree()
   const moveState = useRef({
     forward: false,
@@ -161,8 +170,23 @@ function WalkControls({ moveSpeed, enabled, onCoordinateUpdate }) {
       velocity.current.multiplyScalar(damping) // Gradual slowdown
     }
 
-    // Apply velocity to camera position
-    camera.position.add(velocity.current)
+    // Apply velocity: horizontal movement is stopped by walls, vertical movement
+    // is kept between the floor and the ceiling.
+    const v = velocity.current
+    if (walkGrid) {
+      const r = moveWalkerWithCollision(walkGrid, camera.position.x, camera.position.z, v.x, v.z)
+      camera.position.x = r.x
+      camera.position.z = r.z
+    } else {
+      camera.position.x += v.x
+      camera.position.z += v.z
+    }
+    let nextY = camera.position.y + v.y
+    if (bounds) {
+      const height = bounds.max.y - bounds.min.y
+      nextY = Math.min(bounds.max.y - height * 0.05, Math.max(bounds.min.y + height * 0.15, nextY))
+    }
+    camera.position.y = nextY
   })
 
   return null
@@ -245,359 +269,262 @@ function LiveCoordinateTracker({ isWalkMode, controlsRef, onCoordinateUpdate }) 
   return null
 }
 
-// Simple Draggable Furniture Component - no physics, just direct manipulation
-function DraggableFurniture({ mesh, onReset }) {
-  const [isDragging, setIsDragging] = useState(false)
-  const [isHovered, setIsHovered] = useState(false)
-  const dragPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0))
-  const dragOffset = useRef(new THREE.Vector3())
+// Movable furniture: drag an item across the floor. It slides along walls and
+// stops at other furniture instead of passing through them.
+function MovableItem({ item, onDragChange, registerReset }) {
   const { camera, gl } = useThree()
+  const hovered = useRef(false)
+  const dragging = useRef(false)
+  const plane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0))
+  const grabOffset = useRef({ x: 0, z: 0 })
+  const raycaster = useRef(new THREE.Raycaster())
+  const originals = useRef(new Map())
 
-  // Store original position for reset
-  const originalPosition = useRef(null)
-  const originalRotation = useRef(null)
+  // Remember each material's own glow so it can be restored afterwards
+  useEffect(() => {
+    const map = new Map()
+    item.group.traverse((o) => {
+      if (!o.isMesh) return
+      const mats = Array.isArray(o.material) ? o.material : [o.material]
+      mats.forEach((m) => {
+        if (m && m.emissive) map.set(m, { color: m.emissive.clone(), intensity: m.emissiveIntensity })
+      })
+    })
+    originals.current = map
+    return () => {
+      map.forEach((orig, m) => {
+        m.emissive.copy(orig.color)
+        m.emissiveIntensity = orig.intensity
+      })
+      document.body.style.cursor = 'default'
+    }
+  }, [item])
 
   useEffect(() => {
-    if (!mesh) return
-    
-    // Store original transforms once
-    if (!originalPosition.current) {
-      originalPosition.current = mesh.position.clone()
-      originalRotation.current = mesh.rotation.clone()
-    }
-    
-    console.log(`🎯 "${mesh.name}" is now draggable at:`, mesh.position)
-  }, [mesh])
+    registerReset?.(item.id, () => item.group.position.set(0, 0, 0))
+    return () => registerReset?.(item.id, null)
+  }, [item, registerReset])
 
-  // Reset handler
-  useEffect(() => {
-    if (onReset && onReset.current !== undefined && mesh) {
-      onReset.current = () => {
-        mesh.position.copy(originalPosition.current)
-        mesh.rotation.copy(originalRotation.current)
-        console.log('♻️ Furniture reset')
-      }
-    }
-  }, [onReset, mesh])
-
-  // Apply glow effect and outline - only to direct children of this mesh
-  useEffect(() => {
-    if (!mesh) return
-    
-    // Apply effect to the mesh itself if it's a mesh
-    const applyEffect = (child) => {
-      if (child.isMesh && child.material) {
-        if (isDragging) {
-          // Orange when dragging
-          child.material.emissive = new THREE.Color(0xff6600)
-          child.material.emissiveIntensity = 0.5
-        } else if (isHovered) {
-          // Green when hovering
-          child.material.emissive = new THREE.Color(0x00ff00)
-          child.material.emissiveIntensity = 0.3
-        } else {
-          // Subtle blue pulse when idle (shows it's interactive)
-          const pulse = Math.sin(Date.now() * 0.003) * 0.5 + 0.5
-          child.material.emissive = new THREE.Color(0x0088ff)
-          child.material.emissiveIntensity = 0.1 + pulse * 0.1
-        }
-        child.material.needsUpdate = true
-      }
-    }
-    
-    if (mesh.isMesh) {
-      applyEffect(mesh)
-    }
-    
-    // Apply to immediate children only
-    mesh.children.forEach(child => {
-      if (child.isMesh) {
-        applyEffect(child)
+  // Glow: green on hover, orange while dragging, gentle blue pulse when idle
+  useFrame(() => {
+    const t = performance.now() * 0.003
+    originals.current.forEach((orig, m) => {
+      if (dragging.current) {
+        m.emissive.setHex(0xff6600); m.emissiveIntensity = 0.5
+      } else if (hovered.current) {
+        m.emissive.setHex(0x00ff00); m.emissiveIntensity = 0.3
+      } else {
+        m.emissive.setHex(0x0088ff); m.emissiveIntensity = 0.08 + (Math.sin(t) * 0.5 + 0.5) * 0.08
       }
     })
-    
-    // Animate the pulse effect
-    const interval = setInterval(() => {
-      if (!isHovered && !isDragging) {
-        if (mesh.isMesh) {
-          applyEffect(mesh)
-        }
-        mesh.children.forEach(child => {
-          if (child.isMesh) {
-            applyEffect(child)
-          }
-        })
-      }
-    }, 50)
-    
-    return () => clearInterval(interval)
-  }, [mesh, isHovered, isDragging])
+  })
 
-  // Pointer events using canvas events (more reliable)
   useEffect(() => {
-    if (!mesh) return
+    const canvas = gl.domElement
+    const ndc = new THREE.Vector2()
 
-    const handlePointerDown = (event) => {
-      // Check if we clicked on this mesh
-      const raycaster = new THREE.Raycaster()
-      const pointer = new THREE.Vector2(
-        (event.clientX / window.innerWidth) * 2 - 1,
-        -(event.clientY / window.innerHeight) * 2 + 1
-      )
-      raycaster.setFromCamera(pointer, camera)
-      
-      // Only check this specific mesh, not its children
-      const intersects = raycaster.intersectObject(mesh, false) // false = don't check children
-      if (intersects.length > 0) {
-        event.stopPropagation()
-        setIsDragging(true)
-        console.log('🖱️ Grabbed fridge!')
-        
-        // Calculate offset
-        const intersection = new THREE.Vector3()
-        raycaster.ray.intersectPlane(dragPlane.current, intersection)
-        dragOffset.current.set(
-          mesh.position.x - intersection.x,
-          0,
-          mesh.position.z - intersection.z
-        )
-      }
+    const setRay = (event) => {
+      // Use the canvas rectangle (not the window) so picking is correct when the viewer sits inside a page
+      const rect = canvas.getBoundingClientRect()
+      ndc.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1)
+      raycaster.current.setFromCamera(ndc, camera)
     }
 
-    const handlePointerMove = (event) => {
-      if (!isDragging) {
-        // Check hover
-        const raycaster = new THREE.Raycaster()
-        const pointer = new THREE.Vector2(
-          (event.clientX / window.innerWidth) * 2 - 1,
-          -(event.clientY / window.innerHeight) * 2 + 1
-        )
-        raycaster.setFromCamera(pointer, camera)
-        
-        // Only check this specific mesh
-        const intersects = raycaster.intersectObject(mesh, false) // false = don't check children
-        const nowHovered = intersects.length > 0
-        
-        if (nowHovered !== isHovered) {
-          setIsHovered(nowHovered)
-          document.body.style.cursor = nowHovered ? 'grab' : 'default'
-          if (nowHovered) console.log('👆 Hovering over fridge')
+    const hit = () => {
+      item.group.updateMatrixWorld(true)
+      return raycaster.current.intersectObject(item.group, true)[0] || null
+    }
+
+    const onPointerDown = (event) => {
+      if (event.button !== 0) return
+      setRay(event)
+      const h = hit()
+      if (!h) return
+      // Take the event away from the orbit controls
+      event.stopImmediatePropagation()
+      dragging.current = true
+      plane.current.set(new THREE.Vector3(0, 1, 0), -h.point.y)
+      const p = new THREE.Vector3()
+      raycaster.current.ray.intersectPlane(plane.current, p)
+      grabOffset.current = { x: item.group.position.x - p.x, z: item.group.position.z - p.z }
+      try { canvas.setPointerCapture(event.pointerId) } catch (e) { /* not supported */ }
+      canvas.style.cursor = 'grabbing'
+      onDragChange?.(true)
+    }
+
+    const onPointerMove = (event) => {
+      setRay(event)
+      if (!dragging.current) {
+        const over = !!hit()
+        if (over !== hovered.current) {
+          hovered.current = over
+          canvas.style.cursor = over ? 'grab' : ''
         }
         return
       }
-
-      // Dragging - move the mesh
-      const raycaster = new THREE.Raycaster()
-      const pointer = new THREE.Vector2(
-        (event.clientX / window.innerWidth) * 2 - 1,
-        -(event.clientY / window.innerHeight) * 2 + 1
+      const p = new THREE.Vector3()
+      if (!raycaster.current.ray.intersectPlane(plane.current, p)) return
+      const r = moveItemWithCollision(
+        item,
+        item.phys,
+        item.group.position.x,
+        item.group.position.z,
+        p.x + grabOffset.current.x,
+        p.z + grabOffset.current.z
       )
-      raycaster.setFromCamera(pointer, camera)
-      
-      const intersection = new THREE.Vector3()
-      if (raycaster.ray.intersectPlane(dragPlane.current, intersection)) {
-        mesh.position.x = intersection.x + dragOffset.current.x
-        mesh.position.z = intersection.z + dragOffset.current.z
-        // Keep Y unchanged
-      }
+      item.group.position.x = r.x
+      item.group.position.z = r.z
     }
 
-    const handlePointerUp = () => {
-      if (isDragging) {
-        setIsDragging(false)
-        console.log('✋ Released fridge')
-      }
+    const endDrag = (event) => {
+      if (!dragging.current) return
+      dragging.current = false
+      try { canvas.releasePointerCapture(event.pointerId) } catch (e) { /* not captured */ }
+      canvas.style.cursor = hovered.current ? 'grab' : ''
+      onDragChange?.(false)
     }
 
-    gl.domElement.addEventListener('pointerdown', handlePointerDown)
-    gl.domElement.addEventListener('pointermove', handlePointerMove)
-    gl.domElement.addEventListener('pointerup', handlePointerUp)
-
+    // Capture phase so this runs before the orbit controls' own listener
+    canvas.addEventListener('pointerdown', onPointerDown, true)
+    canvas.addEventListener('pointermove', onPointerMove)
+    canvas.addEventListener('pointerup', endDrag)
+    canvas.addEventListener('pointercancel', endDrag)
     return () => {
-      gl.domElement.removeEventListener('pointerdown', handlePointerDown)
-      gl.domElement.removeEventListener('pointermove', handlePointerMove)
-      gl.domElement.removeEventListener('pointerup', handlePointerUp)
-      document.body.style.cursor = 'default'
+      canvas.removeEventListener('pointerdown', onPointerDown, true)
+      canvas.removeEventListener('pointermove', onPointerMove)
+      canvas.removeEventListener('pointerup', endDrag)
+      canvas.removeEventListener('pointercancel', endDrag)
+      canvas.style.cursor = ''
+      if (dragging.current) { dragging.current = false; onDragChange?.(false) }
     }
-  }, [mesh, isDragging, isHovered, camera, gl])
+  }, [item, camera, gl, onDragChange])
 
-  // Don't render anything - just add interactivity to existing mesh
+  return null
+}
+
+// Exposes the camera and physics data to the browser console in debug mode (?debug=true)
+function DebugBridge({ physics }) {
+  const { camera, scene, gl } = useThree()
+  useEffect(() => {
+    window.__roomie3d = { camera, scene, gl, physics, THREE }
+    return () => { delete window.__roomie3d }
+  }, [camera, scene, gl, physics])
   return null
 }
 
 // Room model component
-function RoomModel({ modelPath, isBooked, onModelInfo, scaleOverride, fixMaterials = false, onFurnitureFound, enablePhysics = false }) {
+function RoomModel({ modelPath, isBooked, onModelInfo, scaleOverride, fixMaterials = false, movableItems = [], onPhysicsReady }) {
   const { scene } = useGLTF(modelPath)
+  // Kept in refs so changing them never re-runs the (heavy) setup below
+  const movableRef = useRef(movableItems)
+  const physicsCallbackRef = useRef(onPhysicsReady)
+  movableRef.current = movableItems
+  physicsCallbackRef.current = onPhysicsReady
 
   useEffect(() => {
-    if (scene) {
-      console.log('✅ Model loaded:', modelPath)
+    if (!scene) return
+    console.log('✅ Model loaded:', modelPath)
 
+    // Scale and centre the model ONCE. useGLTF caches the scene and this effect
+    // runs again (React StrictMode, booking status changes). Measuring an
+    // already-scaled scene would scale it back to its original size, so the
+    // first measurements are stored and reused.
+    if (!scene.userData.roomieNorm) {
       const box = new THREE.Box3().setFromObject(scene)
       const size = box.getSize(new THREE.Vector3())
       const center = box.getCenter(new THREE.Vector3())
-
-      console.log('📏 Original model size:', {
-        width: size.x.toFixed(2),
-        height: size.y.toFixed(2),
-        depth: size.z.toFixed(2)
-      })
-
-      // Apply scale (either override or auto-normalize to target size of 8 units)
-      let scaleFactor
-      if (scaleOverride) {
-        scaleFactor = scaleOverride
-      } else {
-        const maxDimension = Math.max(size.x, size.y, size.z)
-        const targetSize = 8
-        scaleFactor = targetSize / maxDimension
-      }
-      
-      console.log('🔧 Scale factor:', scaleFactor.toFixed(3))
+      const scaleFactor = scaleOverride || 8 / Math.max(size.x, size.y, size.z)
       scene.scale.set(scaleFactor, scaleFactor, scaleFactor)
-
-      // Center the model at origin (after scaling)
-      const scaledCenter = center.multiplyScalar(scaleFactor)
+      const scaledCenter = center.clone().multiplyScalar(scaleFactor)
       scene.position.set(-scaledCenter.x, -scaledCenter.y, -scaledCenter.z)
-
-      // UPDATE THE SCENE'S MATRIX
       scene.updateMatrixWorld(true)
-
-      let meshCount = 0
-      let textureCount = 0
-      let materialCount = 0
-      let furnitureFound = false
-
-      // Log all meshes for debugging
-      if (enablePhysics) {
-        console.log('=== 🪑 SCANNING FOR DRAGGABLE FURNITURE ===')
-        console.log(`Model: ${modelPath}`)
-      }
-
-      // Traverse and apply shadows + booking tint
-      scene.traverse((child) => {
-        if (child.isMesh) {
-          meshCount++
-          
-          // Log mesh names for debugging
-          if (enablePhysics) {
-            console.log(`Mesh ${meshCount}: "${child.name || 'unnamed'}"`)
-          }
-          
-          // Try to find draggable furniture
-          if (enablePhysics && !furnitureFound && onFurnitureFound) {
-            const name = (child.name || '').toLowerCase()
-            
-            // Room-specific draggable items:
-            // Room 1: "Chambre01_Meuble_Lit" (bed furniture)
-            // Room 2: "fridge"
-            if (name.includes('fridge') || name.includes('chambre01_meuble_lit')) {
-              console.log(`✅ Found draggable item: "${child.name}"`)
-              
-              // Store reference - keep it visible, just add interactivity
-              onFurnitureFound({
-                mesh: child,
-                name: child.name
-              })
-              
-              furnitureFound = true
-            }
-          }
-          
-          child.castShadow = true
-          child.receiveShadow = true
-
-          if (child.material) {
-            materialCount++
-            
-            // Fix broken materials if requested (for models like appartement.glb)
-            if (fixMaterials) {
-              const oldMaterial = child.material
-              
-              let color = '#888888'
-              if (oldMaterial && oldMaterial.color) {
-                color = `#${oldMaterial.color.getHexString()}`
-              }
-
-              const newMaterial = new THREE.MeshStandardMaterial({
-                color: color,
-                roughness: 0.7,
-                metalness: 0.3,
-                side: THREE.DoubleSide,
-              })
-
-              // Try to preserve texture if it exists
-              if (oldMaterial && oldMaterial.map && oldMaterial.map.image) {
-                try {
-                  newMaterial.map = oldMaterial.map.clone()
-                  newMaterial.map.needsUpdate = true
-                  textureCount++
-                } catch (e) {
-                  console.log('⚠ Texture could not be preserved:', e.message)
-                }
-              }
-
-              // Apply booking status tint
-              if (isBooked) {
-                newMaterial.emissive = new THREE.Color(0x440000)
-                newMaterial.emissiveIntensity = 0.3
-              } else {
-                newMaterial.emissive = new THREE.Color(0x004400)
-                newMaterial.emissiveIntensity = 0.3
-              }
-
-              child.material = newMaterial
-              
-              if (oldMaterial && oldMaterial.dispose) {
-                oldMaterial.dispose()
-              }
-            } else {
-              // Just count textures and apply tint for working materials
-              if (child.material.map) {
-                textureCount++
-              }
-
-              // Apply booking status tint
-              if (isBooked) {
-                child.material.emissive = new THREE.Color(0x440000)
-                child.material.emissiveIntensity = 0.1
-              } else {
-                child.material.emissive = new THREE.Color(0x004400)
-                child.material.emissiveIntensity = 0.1
-              }
-              
-              child.material.needsUpdate = true
-            }
-          }
-        }
-      })
-
-      // Calculate bounding sphere for camera positioning
-      const scaledSize = size.multiplyScalar(scaleFactor)
       const sphere = new THREE.Sphere()
       box.getBoundingSphere(sphere)
-      const scaledRadius = sphere.radius * scaleFactor
-
-      console.log('📐 After scaling:', {
-        size: `${scaledSize.x.toFixed(1)} x ${scaledSize.y.toFixed(1)} x ${scaledSize.z.toFixed(1)}`,
-        radius: scaledRadius.toFixed(2)
-      })
-
-      onModelInfo({
-        loaded: true,
-        meshes: meshCount,
-        textures: textureCount,
-        materials: materialCount,
-        scaleFactor: scaleFactor,
-        radius: scaledRadius
-      })
-
-      console.log(`✅ Loaded ${meshCount} meshes, ${materialCount} materials, ${textureCount} textures`)
-      
-      if (enablePhysics && !furnitureFound) {
-        console.log('💡 No draggable furniture set yet. Review the mesh list above to choose which items to make interactive.')
-      }
+      scene.userData.roomieNorm = { scaleFactor, radius: sphere.radius * scaleFactor }
+      console.log('🔧 Scale factor:', scaleFactor.toFixed(3))
     }
+    const norm = scene.userData.roomieNorm
+
+    let meshCount = 0
+    let textureCount = 0
+    let materialCount = 0
+
+    // Shadows, material repair and the booking tint, for the scene and the movable items
+    const processRoot = (root, countStats) => {
+      root.traverse((child) => {
+        if (!child.isMesh) return
+        if (countStats) meshCount++
+        child.castShadow = true
+        child.receiveShadow = true
+        if (!child.material) return
+        if (countStats) materialCount++
+
+        if (fixMaterials) {
+          const oldMaterial = child.material
+          let color = '#888888'
+          if (oldMaterial && oldMaterial.color) color = `#${oldMaterial.color.getHexString()}`
+
+          const newMaterial = new THREE.MeshStandardMaterial({
+            color,
+            roughness: 0.7,
+            metalness: 0.3,
+            side: THREE.DoubleSide
+          })
+          if (oldMaterial && oldMaterial.map && oldMaterial.map.image) {
+            try {
+              newMaterial.map = oldMaterial.map.clone()
+              newMaterial.map.needsUpdate = true
+              if (countStats) textureCount++
+            } catch (e) {
+              console.log('⚠ Texture could not be preserved:', e.message)
+            }
+          }
+          newMaterial.emissive = new THREE.Color(isBooked ? 0x440000 : 0x004400)
+          newMaterial.emissiveIntensity = 0.3
+          child.material = newMaterial
+          if (oldMaterial && oldMaterial.dispose) oldMaterial.dispose()
+        } else {
+          if (child.material.map && countStats) textureCount++
+          child.material.emissive = new THREE.Color(isBooked ? 0x440000 : 0x004400)
+          child.material.emissiveIntensity = 0.1
+          child.material.needsUpdate = true
+        }
+      })
+    }
+
+    processRoot(scene, true)
+
+    // Physics: built once per loaded scene, after the materials are repaired so
+    // the movable items inherit the repaired materials.
+    if (!scene.userData.roomiePhysics) {
+      scene.updateMatrixWorld(true)
+      const bounds = new THREE.Box3().setFromObject(scene)
+      const walkGrid = buildWalkGrid(scene, bounds) // includes furniture, so build it before items are cut out
+      const items = []
+      for (const cfg of movableRef.current) {
+        const item = extractMovableItem(scene, cfg, bounds.min.y)
+        if (!item) {
+          console.warn(`⚠ Movable item "${cfg.id}" not found in ${modelPath}`)
+          continue
+        }
+        items.push(item)
+      }
+      // Items are collision-tested against the room as it is once every item has been cut out
+      for (const item of items) item.phys = buildItemGrid(scene, item, bounds)
+      scene.userData.roomiePhysics = { bounds, walkGrid, items }
+      console.log(`🪑 Movable items ready: ${items.map(i => i.label).join(', ') || 'none'}`)
+    }
+    for (const item of scene.userData.roomiePhysics.items) processRoot(item.group, false)
+
+    onModelInfo({
+      loaded: true,
+      meshes: meshCount,
+      textures: textureCount,
+      materials: materialCount,
+      scaleFactor: norm.scaleFactor,
+      radius: norm.radius
+    })
+    physicsCallbackRef.current?.(scene.userData.roomiePhysics)
   }, [scene, isBooked, onModelInfo, modelPath, scaleOverride, fixMaterials])
 
   if (!scene) return null
@@ -692,29 +619,40 @@ function LoadingSpinner() {
 }
 
 // Main RoomViewer component
-function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride, initialCameraDistance, fixMaterials = false, enablePhysics = false }) {
+function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride, initialCameraDistance, fixMaterials = false, enablePhysics = false, movableItems = [] }) {
   const [modelInfo, setModelInfo] = useState({})
   const [targetWaypoint, setTargetWaypoint] = useState(null)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [isWalkMode, setIsWalkMode] = useState(false)
   const [currentCoordinates, setCurrentCoordinates] = useState({ position: [0, 0, 0], target: [0, 0, 0] })
   const [showCopyFeedback, setShowCopyFeedback] = useState(false)
-  const [draggableFurniture, setDraggableFurniture] = useState([])
+  const [physics, setPhysics] = useState(null) // movable items + collision grids once the model is ready
   const [isDragging, setIsDragging] = useState(false)
   const controlsRef = useRef(null)
   const pointerLockRef = useRef(null)
   const coordinateUpdateTimeout = useRef(null)
-  const resetFurnitureRef = useRef(null)
+  const physicsRef = useRef(null)
+  const resetFns = useRef({})
 
   const moveSpeed = modelInfo.radius ? modelInfo.radius * 0.01 : 0.008 // Even slower, careful walking speed
   const isDebugMode = new URLSearchParams(window.location.search).get('debug') === 'true'
   const hasWaypoints = Object.keys(waypoints).length > 0
 
+  const handlePhysicsReady = useCallback((p) => {
+    physicsRef.current = p
+    setPhysics(p)
+  }, [])
+
+  const registerReset = useCallback((id, fn) => {
+    if (fn) resetFns.current[id] = fn
+    else delete resetFns.current[id]
+  }, [])
+
+  const hasMovableItems = enablePhysics && !!physics && physics.items.length > 0
+
   const handleResetFurniture = () => {
-    if (resetFurnitureRef.current) {
-      resetFurnitureRef.current()
-      console.log('♻️ Furniture reset to original position')
-    }
+    Object.values(resetFns.current).forEach(fn => fn())
+    console.log('♻️ Furniture reset to original position')
   }
 
   // Live coordinate update
@@ -805,6 +743,32 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
       console.log('💾 Saving orbit target:', currentTarget)
     }
     
+    if (newWalkMode && controlsRef.current && physicsRef.current?.walkGrid) {
+      const cam = controlsRef.current.object
+      const { walkGrid, bounds } = physicsRef.current
+      const insideModel =
+        cam.position.x >= bounds.min.x && cam.position.x <= bounds.max.x &&
+        cam.position.z >= bounds.min.z && cam.position.z <= bounds.max.z
+      if (insideModel) {
+        // Already in the apartment: only step out of a wall or piece of furniture
+        if (!walkPositionFree(walkGrid, cam.position.x, cam.position.z)) {
+          const spot = findNearestFree(walkGrid, cam.position.x, cam.position.z)
+          cam.position.x = spot.x
+          cam.position.z = spot.z
+        }
+      } else {
+        // The orbit camera is outside the building: start at the first waypoint, or the nearest free spot
+        const first = Object.values(waypoints)[0]
+        if (first) {
+          cam.position.set(...first.position)
+          cam.lookAt(new THREE.Vector3(...first.target))
+        } else {
+          const spot = findNearestFree(walkGrid, 0, 0)
+          cam.position.set(spot.x, bounds.min.y + (bounds.max.y - bounds.min.y) * 0.5, spot.z)
+        }
+      }
+    }
+
     setIsWalkMode(newWalkMode)
     
     // Exit pointer lock when switching to orbit mode
@@ -909,7 +873,7 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
         </button>
         
         {/* Reset Furniture Button - Icon only on mobile */}
-        {enablePhysics && draggableFurniture && (
+        {hasMovableItems && (
           <button
             onClick={handleResetFurniture}
             className="flex-1 md:flex-none px-2 md:px-4 py-1.5 md:py-2 rounded-lg font-semibold text-[10px] md:text-sm shadow-lg transition-colors bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center gap-1 md:gap-2"
@@ -1222,17 +1186,24 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
             onModelInfo={setModelInfo}
             scaleOverride={scaleOverride}
             fixMaterials={fixMaterials}
-            enablePhysics={enablePhysics}
-            onFurnitureFound={setDraggableFurniture}
+            movableItems={enablePhysics ? movableItems : []}
+            onPhysicsReady={handlePhysicsReady}
           />
 
-          {/* Draggable Furniture - simple drag, no physics */}
-          {draggableFurniture && (
-            <DraggableFurniture
-              mesh={draggableFurniture.mesh}
-              onReset={resetFurnitureRef}
+          {/* Movable furniture: lives in world space next to the model, with wall collision */}
+          {hasMovableItems && physics.items.map(item => (
+            <primitive key={item.id} object={item.group} />
+          ))}
+          {hasMovableItems && !isWalkMode && physics.items.map(item => (
+            <MovableItem
+              key={item.id}
+              item={item}
+              onDragChange={setIsDragging}
+              registerReset={registerReset}
             />
-          )}
+          ))}
+
+          {isDebugMode && <DebugBridge physics={physics} />}
 
           {/* Camera */}
           <CameraRig 
@@ -1259,6 +1230,8 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
                 moveSpeed={moveSpeed} 
                 enabled={isWalkMode}
                 onCoordinateUpdate={updateCoordinates}
+                walkGrid={physics?.walkGrid}
+                bounds={physics?.bounds}
               />
               <MobileTouchCamera enabled={isWalkMode} />
             </>
@@ -1293,7 +1266,7 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
           <span className="truncate">
             {isWalkMode 
               ? 'Walk Mode: Use WASD to move • Mouse to look • ESC to unlock'
-              : 'Orbit Mode: Drag to rotate • Scroll to zoom • Right-drag to pan' + (hasWaypoints ? ' • Click room buttons for quick tour' : '')
+              : 'Orbit Mode: Drag to rotate • Scroll to zoom • Right-drag to pan' + (hasWaypoints ? ' • Click room buttons for quick tour' : '') + (hasMovableItems ? ` • Drag the glowing ${physics.items.map(i => i.label.toLowerCase()).join(' / ')} to move it` : '')
             }
             {isDebugMode && <span className="ml-2 text-yellow-300">• Debug coordinates enabled</span>}
           </span>

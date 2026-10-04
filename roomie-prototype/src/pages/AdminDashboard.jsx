@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
-import { getAllBookings } from '../data/bookings'
+import { getAllBookings, initializeBookings, subscribeToBookings } from '../data/bookings'
+import { sumRevenue, isEarningStatus, formatDateLabel, formatMoney } from '../utils/pricing'
 import { getAllReviews } from '../data/reviews'
-import Breadcrumb from '../components/Breadcrumb'
 
-function AdminDashboard({ onBack }) {
+function AdminDashboard() {
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalHosts: 0,
-    totalRenters: 0,
+    totalCustomers: 0,
     totalBookings: 0,
     pendingBookings: 0,
     approvedBookings: 0,
@@ -19,12 +19,17 @@ function AdminDashboard({ onBack }) {
   const [bookings, setBookings] = useState([])
   const [activeTab, setActiveTab] = useState('overview') // overview, users, bookings, analytics
   const [userSearchQuery, setUserSearchQuery] = useState('')
-  const [userRoleFilter, setUserRoleFilter] = useState('all') // all, admin, host, renter
+  const [userRoleFilter, setUserRoleFilter] = useState('all') // all, admin, host, customer
   const [userSortBy, setSortBy] = useState('newest') // newest, oldest, name
   const [showExportMenu, setShowExportMenu] = useState(false)
+  const [showBanModal, setShowBanModal] = useState(false)
+  const [selectedUser, setSelectedUser] = useState(null)
 
   useEffect(() => {
+    initializeBookings()
     loadDashboardData()
+    // Live: totals refresh as soon as a booking is created, approved, declined or cancelled
+    return subscribeToBookings(loadDashboardData)
   }, [])
 
   const loadDashboardData = () => {
@@ -40,12 +45,10 @@ function AdminDashboard({ onBack }) {
     
     // Calculate stats
     const hosts = allUsers.filter(u => u.role === 'host')
-    const renters = allUsers.filter(u => u.role === 'renter')
+    const customers = allUsers.filter(u => u.role === 'customer')
     const pending = allBookings.filter(b => b.status === 'pending')
-    const approved = allBookings.filter(b => b.status === 'approved' || b.status === 'completed')
-    const totalRevenue = allBookings
-      .filter(b => b.status === 'approved' || b.status === 'completed')
-      .reduce((sum, b) => sum + b.totalPrice, 0)
+    const approved = allBookings.filter(b => isEarningStatus(b.status))
+    const totalRevenue = sumRevenue(allBookings)
     
     const avgRating = allReviews.length > 0
       ? (allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length).toFixed(1)
@@ -54,7 +57,7 @@ function AdminDashboard({ onBack }) {
     setStats({
       totalUsers: allUsers.length,
       totalHosts: hosts.length,
-      totalRenters: renters.length,
+      totalCustomers: customers.length,
       totalBookings: allBookings.length,
       pendingBookings: pending.length,
       approvedBookings: approved.length,
@@ -71,6 +74,7 @@ function AdminDashboard({ onBack }) {
     switch(status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800'
       case 'approved': return 'bg-green-100 text-green-800'
+      case 'cancelled': return 'bg-gray-100 text-gray-600'
       case 'declined': return 'bg-red-100 text-red-800'
       case 'completed': return 'bg-gray-100 text-gray-800'
       default: return 'bg-gray-100 text-gray-800'
@@ -81,9 +85,43 @@ function AdminDashboard({ onBack }) {
     switch(role) {
       case 'admin': return 'bg-purple-100 text-purple-800'
       case 'host': return 'bg-blue-100 text-blue-800'
-      case 'renter': return 'bg-green-100 text-green-800'
+      case 'customer': return 'bg-green-100 text-green-800'
       default: return 'bg-gray-100 text-gray-800'
     }
+  }
+
+  // Ban/Suspend user (only renters/customers)
+  const handleBanUser = (user) => {
+    if (user.role === 'host' || user.role === 'admin') {
+      alert('Cannot ban host or admin accounts!')
+      return
+    }
+    setSelectedUser(user)
+    setShowBanModal(true)
+  }
+
+  const confirmBanUser = () => {
+    if (!selectedUser) return
+
+    const usersJson = localStorage.getItem('registeredUsers')
+    const allUsers = usersJson ? JSON.parse(usersJson) : []
+    
+    const updatedUsers = allUsers.map(u => 
+      u.id === selectedUser.id 
+        ? { ...u, banned: !u.banned, bannedAt: u.banned ? null : new Date().toISOString() }
+        : u
+    )
+    
+    localStorage.setItem('registeredUsers', JSON.stringify(updatedUsers))
+    
+    // If unbanning, clear the flag
+    const action = selectedUser.banned ? 'Unbanned' : 'Banned'
+    
+    setShowBanModal(false)
+    setSelectedUser(null)
+    loadDashboardData()
+    
+    alert(`${action} user: ${selectedUser.name}`)
   }
 
   // Filter and sort users
@@ -168,8 +206,8 @@ function AdminDashboard({ onBack }) {
       bookingId: b.id,
       roomName: b.roomName,
       renterName: b.renterName,
-      checkIn: new Date(b.checkIn).toLocaleDateString(),
-      checkOut: new Date(b.checkOut).toLocaleDateString(),
+      checkIn: formatDateLabel(b.checkIn),
+      checkOut: formatDateLabel(b.checkOut),
       status: b.status,
       totalPrice: b.totalPrice
     }))
@@ -188,7 +226,7 @@ function AdminDashboard({ onBack }) {
     bookings
       .filter(b => b.status === 'approved' || b.status === 'completed')
       .forEach(b => {
-        const month = new Date(b.checkIn).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
+        const month = formatDateLabel(b.checkIn, { year: 'numeric', month: 'short' })
         monthlyData[month] = (monthlyData[month] || 0) + b.totalPrice
       })
     return Object.entries(monthlyData).slice(-6) // Last 6 months
@@ -210,13 +248,6 @@ function AdminDashboard({ onBack }) {
     <div className="min-h-screen bg-gray-50 py-8 pt-24">
       <div className="container mx-auto px-4 max-w-7xl">
         
-        {/* Breadcrumb */}
-        <Breadcrumb
-          items={[
-            { label: 'Home', onClick: onBack },
-            { label: 'Admin Dashboard' }
-          ]}
-        />
 
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -305,7 +336,7 @@ function AdminDashboard({ onBack }) {
             </div>
             <h3 className="text-2xl font-bold text-gray-900 mb-1">{stats.totalUsers}</h3>
             <p className="text-sm text-gray-600">Total Users</p>
-            <p className="text-xs text-gray-500 mt-2">{stats.totalHosts} hosts · {stats.totalRenters} renters</p>
+            <p className="text-xs text-gray-500 mt-2">{stats.totalCustomers} customers</p>
           </div>
 
           {/* Total Bookings */}
@@ -331,7 +362,7 @@ function AdminDashboard({ onBack }) {
                 </svg>
               </div>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-1">${stats.totalRevenue.toFixed(2)}</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-1">{formatMoney(stats.totalRevenue)}</h3>
             <p className="text-sm text-gray-600">Total Revenue</p>
             <p className="text-xs text-gray-500 mt-2">From approved bookings</p>
           </div>
@@ -475,7 +506,7 @@ function AdminDashboard({ onBack }) {
                   <option value="all">All Roles</option>
                   <option value="admin">Admin</option>
                   <option value="host">Host</option>
-                  <option value="renter">Renter</option>
+                  <option value="customer">Customer</option>
                 </select>
 
                 {/* Sort */}
@@ -505,12 +536,14 @@ function AdminDashboard({ onBack }) {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="px-6 py-12 text-center">
+                      <td colSpan="6" className="px-6 py-12 text-center">
                         <div className="flex flex-col items-center">
                           <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
@@ -543,6 +576,33 @@ function AdminDashboard({ onBack }) {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {new Date(user.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {user.banned ? (
+                            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                              Banned
+                            </span>
+                          ) : (
+                            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                              Active
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          {user.role === 'customer' ? (
+                            <button
+                              onClick={() => handleBanUser(user)}
+                              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                                user.banned
+                                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                  : 'bg-red-100 text-red-700 hover:bg-red-200'
+                              }`}
+                            >
+                              {user.banned ? 'Unban' : 'Ban User'}
+                            </button>
+                          ) : (
+                            <span className="text-gray-400 text-xs italic">Protected</span>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -583,15 +643,15 @@ function AdminDashboard({ onBack }) {
                     </div>
                     <div>
                       <p className="text-gray-600">Check-in</p>
-                      <p className="font-medium">{new Date(booking.checkIn).toLocaleDateString()}</p>
+                      <p className="font-medium">{formatDateLabel(booking.checkIn)}</p>
                     </div>
                     <div>
                       <p className="text-gray-600">Check-out</p>
-                      <p className="font-medium">{new Date(booking.checkOut).toLocaleDateString()}</p>
+                      <p className="font-medium">{formatDateLabel(booking.checkOut)}</p>
                     </div>
                     <div>
                       <p className="text-gray-600">Total</p>
-                      <p className="font-semibold text-green-600">${booking.totalPrice.toFixed(2)}</p>
+                      <p className="font-semibold text-green-600">{formatMoney(booking.totalPrice)}</p>
                     </div>
                   </div>
                 </div>
@@ -621,7 +681,7 @@ function AdminDashboard({ onBack }) {
                       <div key={index}>
                         <div className="flex items-center justify-between text-sm mb-1">
                           <span className="text-gray-700 font-medium">{month}</span>
-                          <span className="text-green-600 font-semibold">${revenue.toFixed(2)}</span>
+                          <span className="text-green-600 font-semibold">{formatMoney(revenue)}</span>
                         </div>
                         <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
                           <div 
@@ -693,7 +753,7 @@ function AdminDashboard({ onBack }) {
                   </svg>
                 </div>
                 <p className="text-3xl font-bold">
-                  ${stats.totalBookings > 0 ? (stats.totalRevenue / stats.totalBookings).toFixed(2) : '0.00'}
+                  {formatMoney(stats.totalBookings > 0 ? stats.totalRevenue / stats.totalBookings : 0)}
                 </p>
               </div>
 
@@ -727,6 +787,63 @@ function AdminDashboard({ onBack }) {
           </div>
         )}
       </div>
+
+      {/* Ban Confirmation Modal */}
+      {showBanModal && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                selectedUser.banned ? 'bg-green-100' : 'bg-red-100'
+              }`}>
+                <svg className={`w-6 h-6 ${selectedUser.banned ? 'text-green-600' : 'text-red-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {selectedUser.banned ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  )}
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  {selectedUser.banned ? 'Unban User' : 'Ban User'}
+                </h3>
+                <p className="text-sm text-gray-600">{selectedUser.name}</p>
+              </div>
+            </div>
+
+            <p className="text-gray-700 mb-6">
+              {selectedUser.banned ? (
+                <>Are you sure you want to <span className="font-semibold text-green-600">unban</span> this user? They will regain access to all features.</>
+              ) : (
+                <>Are you sure you want to <span className="font-semibold text-red-600">ban</span> this user? They will be unable to login or make bookings.</>
+              )}
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowBanModal(false)
+                  setSelectedUser(null)
+                }}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmBanUser}
+                className={`flex-1 px-4 py-2 rounded-lg transition-colors font-medium ${
+                  selectedUser.banned
+                    ? 'bg-green-600 hover:bg-green-700 text-white'
+                    : 'bg-red-600 hover:bg-red-700 text-white'
+                }`}
+              >
+                {selectedUser.banned ? 'Unban User' : 'Ban User'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

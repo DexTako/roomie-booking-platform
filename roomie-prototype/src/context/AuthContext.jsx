@@ -71,7 +71,7 @@ export const AuthProvider = ({ children }) => {
       name: userData.name,
       email: userData.email,
       password: userData.password, // In real app, this would be hashed
-      role: userData.role,
+      role: 'customer', // public sign-up is always a customer
       createdAt: new Date().toISOString()
     }
 
@@ -133,14 +133,25 @@ export const AuthProvider = ({ children }) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-// Initialize with demo users
-export const initializeDemoUsers = () => {
+// Seed the two fixed staff accounts (one host, one admin) and tidy legacy data.
+// Customers can only be created through the public sign-up form.
+export const initializeDefaultAccounts = () => {
   const existingUsers = localStorage.getItem('registeredUsers')
-  let users = existingUsers ? JSON.parse(existingUsers) : []
-  
-  // Always ensure admin user exists
-  const adminExists = users.some(u => u.email === 'admin@roomie.com')
-  if (!adminExists) {
+  let users = []
+  try {
+    users = existingUsers ? JSON.parse(existingUsers) : []
+  } catch (error) {
+    users = []
+  }
+
+  // Legacy data: the old "renter" role is now "customer"
+  users = users.map(u => (u.role === 'renter' ? { ...u, role: 'customer' } : u))
+
+  // Legacy data: remove the old seeded demo renter account
+  users = users.filter(u => u.email !== 'renter@roomie.com')
+
+  // The single admin account
+  if (!users.some(u => u.email === 'admin@roomie.com')) {
     users.push({
       id: 'user_admin_1',
       name: 'Admin User',
@@ -149,12 +160,10 @@ export const initializeDemoUsers = () => {
       role: 'admin',
       createdAt: '2024-08-01T00:00:00Z'
     })
-    console.log('✅ Admin user added')
   }
-  
-  // Ensure host user exists
-  const hostExists = users.some(u => u.email === 'host@roomie.com')
-  if (!hostExists) {
+
+  // The single host account (owner of all rooms)
+  if (!users.some(u => u.email === 'host@roomie.com')) {
     users.push({
       id: 'user_host_1',
       name: 'John Host',
@@ -163,30 +172,7 @@ export const initializeDemoUsers = () => {
       role: 'host',
       createdAt: '2024-08-01T00:00:00Z'
     })
-    console.log('✅ Host user added')
   }
-  
-  // Ensure renter user exists
-  const renterExists = users.some(u => u.email === 'renter@roomie.com')
-  if (!renterExists) {
-    users.push({
-      id: 'user_renter_1',
-      name: 'Sarah Renter',
-      email: 'renter@roomie.com',
-      password: 'renter123',
-      role: 'renter',
-      createdAt: '2024-08-01T00:00:00Z'
-    })
-    console.log('✅ Renter user added')
-  }
-  
-  // Save updated users
+
   localStorage.setItem('registeredUsers', JSON.stringify(users))
-  
-  if (!existingUsers || users.length > 0) {
-    console.log('✅ Demo users initialized:')
-    console.log('   Admin: admin@roomie.com / admin123')
-    console.log('   Host: host@roomie.com / host123')
-    console.log('   Renter: renter@roomie.com / renter123')
-  }
 }

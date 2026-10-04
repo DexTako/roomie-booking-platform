@@ -1,9 +1,12 @@
+import { useState } from 'react'
 import { useComparison } from '../context/ComparisonContext'
+import { calculatePrice, formatMoney } from '../utils/pricing'
 import { getRoomById } from '../data/rooms'
 import Breadcrumb from '../components/Breadcrumb'
 
 function ComparisonPage({ onBack, onViewRoom }) {
   const { comparison, removeFromComparison, clearComparison } = useComparison()
+  const [nights, setNights] = useState(3) // live stay length used for the total row
 
   // Safety check - ensure comparison is an array
   const comparisonArray = Array.isArray(comparison) ? comparison : []
@@ -78,6 +81,29 @@ function ComparisonPage({ onBack, onViewRoom }) {
           </button>
         </div>
 
+        {/* Stay length: totals below recalculate live */}
+        <div className="mb-4 flex flex-wrap items-center gap-3 bg-white rounded-lg shadow-sm px-4 py-3">
+          <span className="text-sm font-semibold text-gray-700">Length of stay</span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setNights(n => Math.max(1, n - 1))}
+              aria-label="Fewer nights"
+              className="w-8 h-8 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50"
+            >−</button>
+            <span className="w-24 text-center text-sm font-medium text-gray-900">
+              {nights} {nights === 1 ? 'night' : 'nights'}
+            </span>
+            <button
+              type="button"
+              onClick={() => setNights(n => Math.min(60, n + 1))}
+              aria-label="More nights"
+              className="w-8 h-8 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50"
+            >+</button>
+          </div>
+          <span className="text-xs text-gray-500">Totals include the 10% service fee.</span>
+        </div>
+
         {/* Comparison Table */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           {/* Mobile Warning */}
@@ -143,6 +169,22 @@ function ComparisonPage({ onBack, onViewRoom }) {
                       <span className="text-xl sm:text-2xl font-bold text-blue-600">${room.pricePerNight}</span>
                     </td>
                   ))}
+                </tr>
+
+                {/* Total for the chosen stay (live) */}
+                <tr className="hover:bg-gray-50">
+                  <td className="sticky left-0 bg-white px-4 sm:px-6 py-3 sm:py-4 font-semibold text-gray-900 text-sm sm:text-base">
+                    Total for {nights} {nights === 1 ? 'night' : 'nights'}
+                  </td>
+                  {comparisonRooms.map(room => {
+                    const price = calculatePrice(room.pricePerNight, nights)
+                    return (
+                      <td key={room.id} className="px-4 sm:px-6 py-3 sm:py-4">
+                        <span className="text-lg sm:text-xl font-bold text-gray-900">{formatMoney(price.total)}</span>
+                        <p className="text-xs text-gray-500">{formatMoney(price.subtotal)} + {formatMoney(price.serviceFee)} fee</p>
+                      </td>
+                    )
+                  })}
                 </tr>
 
                 {/* Theme */}

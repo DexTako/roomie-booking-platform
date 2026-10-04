@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import RoomViewer from '../components/RoomViewer'
 import RoomGallery from '../components/RoomGallery'
 import BookingWizard from '../components/BookingWizard'
+import AvailabilityCalendar from '../components/AvailabilityCalendar'
 import ReviewsSection from '../components/ReviewsSection'
 import AddReview from '../components/AddReview'
 import StarRating from '../components/StarRating'
@@ -14,7 +15,8 @@ import {
   addReview,
   initializeReviews
 } from '../data/reviews'
-import { addBooking, initializeBookings } from '../data/bookings'
+import { addBooking, cancelBooking, initializeBookings } from '../data/bookings'
+import { calculateStayPrice, formatDateLabel } from '../utils/pricing'
 
 function RoomDetailPage({ room, onBack }) {
   const { user } = useAuth()
@@ -22,6 +24,7 @@ function RoomDetailPage({ room, onBack }) {
   const [bookingData, setBookingData] = useState(null)
   const [show3DView, setShow3DView] = useState(false)
   const [showBookingWizard, setShowBookingWizard] = useState(false)
+  const [selectedDates, setSelectedDates] = useState({ checkIn: '', checkOut: '' })
   const [reviews, setReviews] = useState([])
   const [averageRating, setAverageRating] = useState(0)
   const [categoryAverages, setCategoryAverages] = useState(null)
@@ -73,8 +76,8 @@ function RoomDetailPage({ room, onBack }) {
       guests: bookingFormData.guests,
       pricePerNight: room.pricePerNight,
       nights: bookingFormData.nights,
-      subtotal: bookingFormData.nights * room.pricePerNight,
-      serviceFee: bookingFormData.nights * room.pricePerNight * 0.1,
+      subtotal: bookingFormData.subtotal,
+      serviceFee: bookingFormData.serviceFee,
       totalPrice: bookingFormData.total,
       specialRequests: bookingFormData.specialRequests || ''
     }
@@ -90,15 +93,19 @@ function RoomDetailPage({ room, onBack }) {
     setBookingData(result.booking)
     setIsBooked(true)
     setShowBookingWizard(false)
+    setSelectedDates({ checkIn: '', checkOut: '' })
     alert('🎉 Booking confirmed! Check your email for details.')
   }
 
   const handleCancelBooking = () => {
     if (window.confirm('Are you sure you want to cancel this booking?')) {
+      if (bookingData?.id) cancelBooking(bookingData.id) // frees the dates on the calendar
       setIsBooked(false)
       setBookingData(null)
     }
   }
+
+  const livePrice = calculateStayPrice(room.pricePerNight, selectedDates.checkIn, selectedDates.checkOut)
 
   return (
     <div className="min-h-screen bg-gray-50 pt-24 overflow-x-hidden">
@@ -217,6 +224,7 @@ function RoomDetailPage({ room, onBack }) {
                     isBooked={isBooked}
                     fixMaterials={room.fixMaterials || false}
                     enablePhysics={room.enablePhysics || false}
+                    movableItems={room.movableItems || []}
                   />
                 ) : (
                   <div className="h-[500px] flex items-center justify-center bg-gray-100">
@@ -234,6 +242,20 @@ function RoomDetailPage({ room, onBack }) {
                   onTryMe={room.has3D ? () => setShow3DView(true) : null}
                 />
               )}
+            </div>
+
+            {/* Availability Calendar */}
+            <div className="mt-8 bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-xl font-semibold mb-1">Availability</h2>
+              <p className="text-sm text-gray-600 mb-5">
+                Pick your dates. Booked and pending nights update live.
+              </p>
+              <AvailabilityCalendar
+                roomId={room.id}
+                checkIn={selectedDates.checkIn}
+                checkOut={selectedDates.checkOut}
+                onChange={setSelectedDates}
+              />
             </div>
           </div>
 
@@ -270,7 +292,7 @@ function RoomDetailPage({ room, onBack }) {
                     </div>
                     <div className="flex justify-between pt-3 border-t">
                       <span className="text-gray-600">Total ({bookingData.nights} nights):</span>
-                      <span className="font-bold text-lg text-blue-600">${bookingData.totalPrice}</span>
+                      <span className="font-bold text-lg text-blue-600">${Number(bookingData.totalPrice).toFixed(2)}</span>
                     </div>
                   </div>
 
@@ -288,6 +310,31 @@ function RoomDetailPage({ room, onBack }) {
                       <span className="text-4xl font-bold text-gray-900">${room.pricePerNight}</span>
                       <span className="text-gray-600"> / night</span>
                     </div>
+
+                    {livePrice.nights > 0 ? (
+                      <div className="mb-4 p-4 bg-blue-50 rounded-xl border border-blue-200 text-sm space-y-2">
+                        <div className="flex justify-between text-gray-700">
+                          <span>{formatDateLabel(selectedDates.checkIn, { month: 'short', day: 'numeric' })} → {formatDateLabel(selectedDates.checkOut, { month: 'short', day: 'numeric' })}</span>
+                          <span>{livePrice.nights} {livePrice.nights === 1 ? 'night' : 'nights'}</span>
+                        </div>
+                        <div className="flex justify-between text-gray-600">
+                          <span>${room.pricePerNight} × {livePrice.nights}</span>
+                          <span>${livePrice.subtotal.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-gray-600">
+                          <span>Service fee</span>
+                          <span>${livePrice.serviceFee.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between pt-2 border-t border-blue-200 font-bold text-gray-900">
+                          <span>Total</span>
+                          <span className="text-blue-600">${livePrice.total.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="mb-4 text-center text-sm text-gray-500">
+                        Select dates on the calendar to see your total.
+                      </p>
+                    )}
                     <button
                       onClick={() => user ? setShowBookingWizard(true) : alert('Please login to book')}
                       className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5"
@@ -352,6 +399,7 @@ function RoomDetailPage({ room, onBack }) {
           room={room}
           onClose={() => setShowBookingWizard(false)}
           onComplete={handleBooking}
+          initialDates={selectedDates}
         />
       )}
     </div>

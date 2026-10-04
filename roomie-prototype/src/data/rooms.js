@@ -30,6 +30,10 @@ export const rooms = [
     has3D: true,
     fixMaterials: true, // This model has broken materials that need fixing
     enablePhysics: true, // Enable draggable furniture system
+    // Movable furniture: cut out of the model by floor-plan region (viewer space)
+    movableItems: [
+      { id: 'bed', label: 'Bed', region: { min: [0.0, -1.3], max: [1.62, 0.35] } }
+    ],
     waypoints: {
       // TODO: Capture these coordinates using ?debug=true
        bedroom1: {
@@ -83,6 +87,9 @@ export const rooms = [
     has3D: true,
     fixMaterials: false, // This model has working embedded materials
     enablePhysics: true, // Enable draggable furniture with physics
+    movableItems: [
+      { id: 'fridge', label: 'Refrigerator', meshName: 'fridge' }
+    ],
     waypoints: {
       // Old waypoints from DoriHomeViewer - may need adjustment with new scaling
       kitchen: {
@@ -159,35 +166,38 @@ export const rooms = [
   has3D: true,
   fixMaterials: false,
   enablePhysics: true,
+  movableItems: [
+    { id: 'pouf', label: 'Pouf', region: { min: [-0.75, 1.9], max: [-0.15, 2.5] } }
+  ],
 
   waypoints: {
-    livingRoom:{
-      position: [19.25,1.23,-15.37],
-      target: [16.13,-0.18,-11.72]
+    livingRoom: {
+      position: [-0.31, 0.07, 1.11],
+      target: [-2.63, -0.98, 3.83]
     },
-    kitchen:{
-      position: [18.97,1.47,-13.37],
-      target: [22.55,-0.07,-16.51]
+    kitchen: {
+      position: [-0.52, 0.25, 2.6],
+      target: [2.15, -0.9, 0.26]
     },
-    bedroom1:{
-      position: [21.26,0.64,-19.41],
-      target: [23.67,-0.91,-23.52]
+    bedroom1: {
+      position: [1.19, -0.37, -1.9],
+      target: [2.98, -1.53, -4.96]
     },
-    bedroom2:{
-      position: [17.85,0.73,-19.4],
-      target: [14.64,-0.56,-23.01]
+    bedroom2: {
+      position: [-1.35, -0.31, -1.89],
+      target: [-3.74, -1.27, -4.58]
     },
-    bedroom3:{
-      position: [16.89,0.81,-17.85],
-      target: [13.43,-0.83,-14.64]
+    bedroom3: {
+      position: [-2.07, -0.25, -0.74],
+      target: [-4.64, -1.47, 1.65]
     },
-    bathroom1:{
-      position: [20.82,1.02,-20.76],
-      target: [16.27,-0.76,-21.82]
+    bathroom1: {
+      position: [0.86, -0.09, -2.91],
+      target: [-2.53, -1.42, -3.7]
     },
-    bathroom2:{
-      position: [20.32,1.12,-18.08],
-      target: [24.2,-1.5,-16.35]
+    bathroom2: {
+      position: [0.49, -0.01, -0.91],
+      target: [3.38, -1.97, 0.38]
     }
   }
   
@@ -217,28 +227,31 @@ export const rooms = [
   has3D: true,
   fixMaterials: false,
   enablePhysics: true,
+    movableItems: [
+      { id: 'coffee-table', label: 'Coffee Table', region: { min: [-1.5, -0.55], max: [-0.8, 0.3] } }
+    ],
 
   waypoints: {
     kitchen: {
-      position: [-6.6,0.91,2.46],
-      target: [-9.32,0.94,-1.73]
-      },
+      position: [-2.62, -0.18, 0.32],
+      target: [-3.76, -0.17, -1.44]
+    },
     livingRoom: {
-      position: [-2.45,1.1,1.33],
-      target: [0,0,0]
-      },
-   bedroom1: {
-      position: [4.07,1.03,5],
-      target: [9.04,1.08,4.5]
-      },
+      position: [-0.89, -0.1, -0.16],
+      target: [0.14, -0.56, -0.71]
+    },
+    bedroom1: {
+      position: [1.84, -0.13, 1.38],
+      target: [3.92, -0.11, 1.17]
+    },
     bedroom2: {
-      position: [7.4,1.08,-0.52],
-      target: [2.48,0.37,0.04]
-      },
+      position: [3.23, -0.11, -0.93],
+      target: [1.18, -0.41, -0.7]
+    },
     bathroom: {
-      position: [1.13,1.34,2.34],
-      target: [2.48,1.2,-2.47]
-      }
+      position: [0.61, -0.0, 0.27],
+      target: [1.18, -0.06, -1.75]
+    }
   }
 },
 {
@@ -265,15 +278,18 @@ export const rooms = [
   has3D: true,
   fixMaterials: false,
   enablePhysics: true,
+    movableItems: [
+      { id: 'bed', label: 'Bed', region: { min: [0.85, -2.0], max: [2.65, -0.3] } }
+    ],
 
   waypoints: {
-   bedroom1:{
-      position: [9.4,0.87,-7.81],
-      target: [14.01,0.16,-9.61]
+    bedroom1: {
+      position: [-1.49, -0.22, -0.53],
+      target: [1.72, -0.71, -1.78]
     },
     bathroom: {
-      position: [12.06,1.33,-2.66],
-      target: [16.38,-0.74,-4.09]
+      position: [0.37, 0.1, 3.06],
+      target: [3.37, -1.34, 2.06]
     }
   }
 }

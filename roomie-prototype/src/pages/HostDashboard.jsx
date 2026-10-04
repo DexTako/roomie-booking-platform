@@ -1,25 +1,38 @@
 import { useState, useEffect } from 'react'
 import BookingRequestCard from '../components/BookingRequestCard'
-import Breadcrumb from '../components/Breadcrumb'
-import { getAllBookings, updateBookingStatus, initializeBookings } from '../data/bookings'
+import AvailabilityCalendar from '../components/AvailabilityCalendar'
+import { getAllBookings, updateBookingStatus, initializeBookings, subscribeToBookings } from '../data/bookings'
+import { rooms } from '../data/rooms'
+import {
+  countNights,
+  addDaysISO,
+  todayISO,
+  formatDateLabel,
+  formatMoney,
+  sumRevenue,
+  monthlyRevenue
+} from '../utils/pricing'
 
-function HostDashboard({ onBack }) {
+function HostDashboard() {
   const [bookings, setBookings] = useState([])
   const [filter, setFilter] = useState('all') // all, pending, approved, declined, completed
   const [showNotification, setShowNotification] = useState(false)
   const [notificationMessage, setNotificationMessage] = useState('')
-  const [activeView, setActiveView] = useState('list') // list, calendar, analytics
+  const [activeView, setActiveView] = useState('list') // list, calendar
   const [guestNotes, setGuestNotes] = useState(() => {
     const saved = localStorage.getItem('hostGuestNotes')
     return saved ? JSON.parse(saved) : {}
   })
   const [showNotesModal, setShowNotesModal] = useState(false)
   const [currentBookingId, setCurrentBookingId] = useState(null)
+  const [calendarRoomId, setCalendarRoomId] = useState(rooms[0]?.id ?? 1)
 
   // Load bookings on mount
   useEffect(() => {
     initializeBookings()
     loadBookings()
+    // Live: refresh whenever a booking is created, approved, declined or cancelled
+    return subscribeToBookings(loadBookings)
   }, [])
 
   const loadBookings = () => {
@@ -47,48 +60,6 @@ function HostDashboard({ onBack }) {
     }, 3000)
   }
 
-  // Calculate earnings
-  const calculateEarnings = () => {
-    const approvedBookings = bookings.filter(b => b.status === 'approved' || b.status === 'completed')
-    const totalEarnings = approvedBookings.reduce((sum, b) => sum + b.totalPrice, 0)
-    const thisMonth = new Date().getMonth()
-    const thisYear = new Date().getFullYear()
-    const monthlyEarnings = approvedBookings
-      .filter(b => {
-        const bookingDate = new Date(b.checkIn)
-        return bookingDate.getMonth() === thisMonth && bookingDate.getFullYear() === thisYear
-      })
-      .reduce((sum, b) => sum + b.totalPrice, 0)
-    
-    return { totalEarnings, monthlyEarnings }
-  }
-
-  // Calculate occupancy rate
-  const calculateOccupancyRate = () => {
-    const totalDays = 30 // Last 30 days
-    const bookedDays = bookings
-      .filter(b => b.status === 'approved' || b.status === 'completed')
-      .reduce((sum, b) => {
-        const checkIn = new Date(b.checkIn)
-        const checkOut = new Date(b.checkOut)
-        const days = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
-        return sum + days
-      }, 0)
-    
-    return Math.min(Math.round((bookedDays / totalDays) * 100), 100)
-  }
-
-  // Calculate response time
-  const getResponseStats = () => {
-    const pendingCount = bookings.filter(b => b.status === 'pending').length
-    const respondedCount = bookings.filter(b => b.status !== 'pending').length
-    const responseRate = bookings.length > 0 
-      ? Math.round((respondedCount / bookings.length) * 100) 
-      : 100
-    
-    return { responseRate, pendingCount }
-  }
-
   // Save guest notes
   const saveGuestNote = (bookingId, note) => {
     const updatedNotes = { ...guestNotes, [bookingId]: note }
@@ -98,24 +69,22 @@ function HostDashboard({ onBack }) {
     setShowNotesModal(false)
   }
 
-  // Get calendar data
+  // Upcoming confirmed stays in the next 30 days
   const getCalendarBookings = () => {
-    const today = new Date()
-    const thirtyDaysLater = new Date(today)
-    thirtyDaysLater.setDate(today.getDate() + 30)
-    
+    const today = todayISO()
+    const limit = addDaysISO(today, 30)
     return bookings
-      .filter(b => 
+      .filter(b =>
         (b.status === 'approved' || b.status === 'completed') &&
-        new Date(b.checkIn) >= today &&
-        new Date(b.checkIn) <= thirtyDaysLater
+        b.checkIn >= today &&
+        b.checkIn <= limit
       )
-      .sort((a, b) => new Date(a.checkIn) - new Date(b.checkIn))
+      .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
   }
 
-  const { totalEarnings, monthlyEarnings } = calculateEarnings()
-  const occupancyRate = calculateOccupancyRate()
-  const { responseRate } = getResponseStats()
+  // Live earnings (recalculated from the bookings every time they change)
+  const totalEarnings = sumRevenue(bookings)
+  const monthEarnings = monthlyRevenue(bookings)
 
   // Filter bookings based on selected filter
   const filteredBookings = filter === 'all' 
@@ -143,19 +112,12 @@ function HostDashboard({ onBack }) {
       )}
 
       <div className="container mx-auto px-4">
-        {/* Breadcrumb */}
-        <Breadcrumb
-          items={[
-            { label: 'Home', onClick: onBack },
-            { label: 'Host Dashboard' }
-          ]}
-        />
 
         {/* Header */}
         <div className="mb-8">
           <div className="mb-4">
             <h1 className="text-4xl font-bold text-gray-900 mb-2">Host Dashboard</h1>
-            <p className="text-gray-600">Manage your property bookings</p>
+            <p className="text-gray-600">Review and respond to booking requests for your rooms</p>
           </div>
 
           {/* View Switcher */}
@@ -185,19 +147,6 @@ function HostDashboard({ onBack }) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               Calendar
-            </button>
-            <button
-              onClick={() => setActiveView('analytics')}
-              className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
-                activeView === 'analytics'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              Analytics
             </button>
           </div>
 
@@ -263,20 +212,22 @@ function HostDashboard({ onBack }) {
               </div>
             </div>
 
-            {/* Occupancy Rate */}
+            {/* Earnings */}
             <div className="bg-white rounded-lg shadow p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Occupancy</p>
-                  <p className="text-2xl font-bold text-purple-600">{occupancyRate}%</p>
+                  <p className="text-sm text-gray-600 mb-1">Earnings</p>
+                  <p className="text-2xl font-bold text-emerald-600">{formatMoney(totalEarnings)}</p>
+                  <p className="text-xs text-gray-500 mt-1">{formatMoney(monthEarnings)} this month</p>
                 </div>
-                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
               </div>
             </div>
+
           </div>
 
           {/* Filter Tabs (only show for list view) */}
@@ -423,6 +374,25 @@ function HostDashboard({ onBack }) {
 
         {/* Calendar View */}
         {activeView === 'calendar' && (
+          <div className="space-y-6">
+
+          {/* Room occupancy (live, read-only) */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+              <h3 className="text-xl font-bold text-gray-900">Room Occupancy</h3>
+              <select
+                value={calendarRoomId}
+                onChange={(e) => setCalendarRoomId(Number(e.target.value))}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+              >
+                {rooms.map(room => (
+                  <option key={room.id} value={room.id}>{room.name}</option>
+                ))}
+              </select>
+            </div>
+            <AvailabilityCalendar roomId={calendarRoomId} readOnly />
+          </div>
+
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
               <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -441,10 +411,8 @@ function HostDashboard({ onBack }) {
             ) : (
               <div className="space-y-4">
                 {getCalendarBookings().map((booking) => {
-                  const checkIn = new Date(booking.checkIn)
-                  const checkOut = new Date(booking.checkOut)
-                  const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
-                  const daysUntil = Math.ceil((checkIn - new Date()) / (1000 * 60 * 60 * 24))
+                  const nights = countNights(booking.checkIn, booking.checkOut)
+                  const daysUntil = countNights(todayISO(), booking.checkIn)
                   
                   return (
                     <div key={booking.id} className="border-l-4 border-blue-500 bg-blue-50 p-4 rounded-r-lg">
@@ -457,14 +425,14 @@ function HostDashboard({ onBack }) {
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                               </svg>
-                              {checkIn.toLocaleDateString()} → {checkOut.toLocaleDateString()}
+                              {formatDateLabel(booking.checkIn)} → {formatDateLabel(booking.checkOut)}
                             </span>
                             <span className="font-medium">{nights} night{nights !== 1 ? 's' : ''}</span>
                           </div>
                         </div>
                         <div className="text-right">
                           <p className="text-sm text-gray-600">In {daysUntil} day{daysUntil !== 1 ? 's' : ''}</p>
-                          <p className="text-lg font-bold text-green-600">${booking.totalPrice.toFixed(2)}</p>
+                          <p className="text-lg font-bold text-green-600">{formatMoney(booking.totalPrice)}</p>
                         </div>
                       </div>
                     </div>
@@ -473,113 +441,7 @@ function HostDashboard({ onBack }) {
               </div>
             )}
           </div>
-        )}
 
-        {/* Analytics View */}
-        {activeView === 'analytics' && (
-          <div className="space-y-6">
-            {/* Earnings Overview */}
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg shadow-lg p-6 text-white">
-                <h3 className="text-lg font-semibold mb-2 opacity-90">Total Earnings</h3>
-                <p className="text-4xl font-bold mb-2">${totalEarnings.toFixed(2)}</p>
-                <p className="text-sm opacity-80">All-time revenue from bookings</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white">
-                <h3 className="text-lg font-semibold mb-2 opacity-90">This Month</h3>
-                <p className="text-4xl font-bold mb-2">${monthlyEarnings.toFixed(2)}</p>
-                <p className="text-sm opacity-80">Revenue for {new Date().toLocaleDateString('en-US', { month: 'long' })}</p>
-              </div>
-            </div>
-
-            {/* Performance Metrics */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-6">Performance Metrics</h3>
-              
-              <div className="space-y-6">
-                {/* Response Rate */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">Response Rate</span>
-                    <span className="text-lg font-bold text-blue-600">{responseRate}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                    <div 
-                      className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500"
-                      style={{ width: `${responseRate}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {responseRate >= 90 ? 'Excellent!' : responseRate >= 75 ? 'Good' : 'Needs improvement'}
-                  </p>
-                </div>
-
-                {/* Occupancy Rate */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">Occupancy Rate (Last 30 days)</span>
-                    <span className="text-lg font-bold text-purple-600">{occupancyRate}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                    <div 
-                      className="bg-gradient-to-r from-purple-500 to-purple-600 h-3 rounded-full transition-all duration-500"
-                      style={{ width: `${occupancyRate}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {occupancyRate >= 80 ? 'High demand!' : occupancyRate >= 50 ? 'Moderate' : 'Consider promotions'}
-                  </p>
-                </div>
-
-                {/* Approval Rate */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">Approval Rate</span>
-                    <span className="text-lg font-bold text-green-600">
-                      {bookings.length > 0 ? Math.round((approvedCount / bookings.length) * 100) : 0}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                    <div 
-                      className="bg-gradient-to-r from-green-500 to-green-600 h-3 rounded-full transition-all duration-500"
-                      style={{ width: `${bookings.length > 0 ? (approvedCount / bookings.length) * 100 : 0}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Approved {approvedCount} out of {bookings.length} total requests
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Stats */}
-            <div className="grid md:grid-cols-3 gap-4">
-              <div className="bg-white rounded-lg shadow p-4 border-l-4 border-yellow-500">
-                <p className="text-sm text-gray-600 mb-1">Average Booking Value</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  ${approvedCount > 0 ? (totalEarnings / approvedCount).toFixed(2) : '0.00'}
-                </p>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
-                <p className="text-sm text-gray-600 mb-1">Total Nights Booked</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {bookings
-                    .filter(b => b.status === 'approved' || b.status === 'completed')
-                    .reduce((sum, b) => {
-                      const checkIn = new Date(b.checkIn)
-                      const checkOut = new Date(b.checkOut)
-                      return sum + Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
-                    }, 0)}
-                </p>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-4 border-l-4 border-purple-500">
-                <p className="text-sm text-gray-600 mb-1">Pending Requests</p>
-                <p className="text-2xl font-bold text-gray-900">{pendingCount}</p>
-              </div>
-            </div>
           </div>
         )}
       </div>

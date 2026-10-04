@@ -1,12 +1,16 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import AvailabilityCalendar from './AvailabilityCalendar'
+import { findNextAvailableRange, isRangeAvailable } from '../data/bookings'
+import { calculateStayPrice, formatDateLabel } from '../utils/pricing'
 
-function BookingWizard({ room, onClose, onComplete }) {
+function BookingWizard({ room, onClose, onComplete, initialDates }) {
   const { user } = useAuth()
   const [currentStep, setCurrentStep] = useState(1)
+  const [dateNotice, setDateNotice] = useState('')
   const [bookingData, setBookingData] = useState({
-    checkIn: '',
-    checkOut: '',
+    checkIn: initialDates?.checkIn || '',
+    checkOut: initialDates?.checkOut || '',
     guests: 1,
     guestName: user?.name || '',
     guestEmail: user?.email || '',
@@ -22,19 +26,12 @@ function BookingWizard({ room, onClose, onComplete }) {
     { number: 4, title: 'Confirm', icon: '✓' }
   ]
 
-  // Calculate number of nights and total
-  const calculateNights = () => {
-    if (!bookingData.checkIn || !bookingData.checkOut) return 0
-    const start = new Date(bookingData.checkIn)
-    const end = new Date(bookingData.checkOut)
-    const nights = Math.ceil((end - start) / (1000 * 60 * 60 * 24))
-    return nights > 0 ? nights : 0
-  }
-
-  const nights = calculateNights()
-  const subtotal = nights * room.pricePerNight
-  const serviceFee = subtotal * 0.1
-  const total = subtotal + serviceFee
+  // Live price calculation (shared helper keeps every screen consistent)
+  const { nights, subtotal, serviceFee, total } = calculateStayPrice(
+    room.pricePerNight,
+    bookingData.checkIn,
+    bookingData.checkOut
+  )
 
   const handleNext = () => {
     if (currentStep < 4) setCurrentStep(currentStep + 1)
@@ -49,13 +46,15 @@ function BookingWizard({ room, onClose, onComplete }) {
       ...bookingData,
       roomId: room.id,
       nights,
+      subtotal,
+      serviceFee,
       total
     })
   }
 
   const isStepValid = () => {
     if (currentStep === 1) {
-      return bookingData.checkIn && bookingData.checkOut && nights > 0
+      return nights > 0 && isRangeAvailable(room.id, bookingData.checkIn, bookingData.checkOut)
     }
     if (currentStep === 2) {
       return bookingData.guestName && bookingData.guestEmail && bookingData.guests > 0
@@ -124,33 +123,15 @@ function BookingWizard({ room, onClose, onComplete }) {
                 <p className="text-gray-600">Select your check-in and check-out dates</p>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Check-in Date
-                  </label>
-                  <input
-                    type="date"
-                    value={bookingData.checkIn}
-                    onChange={(e) => setBookingData({ ...bookingData, checkIn: e.target.value })}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Check-out Date
-                  </label>
-                  <input
-                    type="date"
-                    value={bookingData.checkOut}
-                    onChange={(e) => setBookingData({ ...bookingData, checkOut: e.target.value })}
-                    min={bookingData.checkIn || new Date().toISOString().split('T')[0]}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none"
-                  />
-                </div>
-              </div>
+              <AvailabilityCalendar
+                roomId={room.id}
+                checkIn={bookingData.checkIn}
+                checkOut={bookingData.checkOut}
+                onChange={(dates) => {
+                  setDateNotice('')
+                  setBookingData(prev => ({ ...prev, ...dates }))
+                }}
+              />
 
               {nights > 0 && (
                 <div className="p-4 bg-blue-50 rounded-xl border-2 border-blue-200">
@@ -160,7 +141,7 @@ function BookingWizard({ room, onClose, onComplete }) {
                         <span className="text-2xl">{nights}</span> {nights === 1 ? 'night' : 'nights'}
                       </p>
                       <p className="text-xs text-blue-700 mt-1">
-                        ${room.pricePerNight} × {nights} = ${subtotal.toFixed(2)}
+                        ${room.pricePerNight} × {nights} = ${subtotal.toFixed(2)} + ${serviceFee.toFixed(2)} service fee
                       </p>
                     </div>
                     <div className="text-right">
@@ -171,31 +152,27 @@ function BookingWizard({ room, onClose, onComplete }) {
                 </div>
               )}
 
-              {/* Quick Date Suggestions */}
+              {/* Quick Date Suggestions - jump to the next free window */}
               <div>
-                <p className="text-sm font-semibold text-gray-700 mb-3">Quick Select:</p>
+                <p className="text-sm font-semibold text-gray-700 mb-3">Next available:</p>
                 <div className="flex flex-wrap gap-2">
                   {[
-                    { label: 'This Weekend', days: 2 },
-                    { label: 'Next Week', days: 7 },
-                    { label: '2 Weeks', days: 14 },
-                    { label: '1 Month', days: 30 }
+                    { label: '2 nights', days: 2 },
+                    { label: '1 week', days: 7 },
+                    { label: '2 weeks', days: 14 },
+                    { label: '1 month', days: 30 }
                   ].map(option => (
                     <button
                       key={option.label}
                       type="button"
                       onClick={() => {
-                        const today = new Date()
-                        const checkIn = new Date(today)
-                        checkIn.setDate(today.getDate() + 1)
-                        const checkOut = new Date(checkIn)
-                        checkOut.setDate(checkIn.getDate() + option.days)
-                        
-                        setBookingData({
-                          ...bookingData,
-                          checkIn: checkIn.toISOString().split('T')[0],
-                          checkOut: checkOut.toISOString().split('T')[0]
-                        })
+                        const range = findNextAvailableRange(room.id, option.days)
+                        if (range) {
+                          setDateNotice('')
+                          setBookingData(prev => ({ ...prev, ...range }))
+                        } else {
+                          setDateNotice(`No ${option.label} window is free in the next year.`)
+                        }
                       }}
                       className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"
                     >
@@ -203,6 +180,7 @@ function BookingWizard({ room, onClose, onComplete }) {
                     </button>
                   ))}
                 </div>
+                {dateNotice && <p className="mt-2 text-sm text-amber-700">{dateNotice}</p>}
               </div>
             </div>
           )}
@@ -348,11 +326,11 @@ function BookingWizard({ room, onClose, onComplete }) {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Check-in:</span>
-                      <span className="font-medium text-gray-900">{new Date(bookingData.checkIn).toLocaleDateString()}</span>
+                      <span className="font-medium text-gray-900">{formatDateLabel(bookingData.checkIn)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Check-out:</span>
-                      <span className="font-medium text-gray-900">{new Date(bookingData.checkOut).toLocaleDateString()}</span>
+                      <span className="font-medium text-gray-900">{formatDateLabel(bookingData.checkOut)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Guests:</span>

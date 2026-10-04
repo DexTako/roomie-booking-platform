@@ -14,6 +14,7 @@ import HowItWorksPage from './pages/HowItWorksPage'
 import ContactPage from './pages/ContactPage'
 import NotFoundPage from './pages/NotFoundPage'
 import Navbar from './components/Navbar'
+import StaffHeader from './components/StaffHeader'
 import LoadingScreen from './components/LoadingScreen'
 import Toast from './components/Toast'
 import { getRoomById } from './data/rooms'
@@ -24,10 +25,19 @@ function App() {
   const { user, isLoading: authLoading } = useAuth()
   const { comparisonCount } = useComparison()
 
-  const [currentView, setCurrentView] = useState('home')
+  const [viewState, setCurrentView] = useState('home')
   const [selectedRoomId, setSelectedRoomId] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [toast, setToast] = useState(null)
+
+  // ROLE-BASED VIEWS
+  // Host and admin only ever see their own dashboard (no customer pages).
+  // Guests and customers can never reach a dashboard.
+  const isStaff = user?.role === 'host' || user?.role === 'admin'
+  const staffView = user?.role === 'admin' ? 'admin' : 'host'
+  const currentView = isStaff
+    ? staffView
+    : (viewState === 'host' || viewState === 'admin' ? 'home' : viewState)
 
   // Initial loading screen
   useEffect(() => {
@@ -64,55 +74,6 @@ function App() {
   const handleBackToHome = () => {
     setCurrentView('home')
     setSelectedRoomId(null)
-
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
-  }
-
-
-  // HOST DASHBOARD
-  const handleNavigateToHost = () => {
-    if (!user) {
-      setCurrentView('login')
-      return
-    }
-
-    if (user.role !== 'host') {
-      showToast(
-        'Only hosts can access the Host Dashboard. Please login as a host.',
-        'error'
-      )
-      return
-    }
-
-    setCurrentView('host')
-
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
-  }
-
-
-  // ADMIN DASHBOARD
-  const handleNavigateToAdmin = () => {
-    if (!user) {
-      setCurrentView('login')
-      return
-    }
-
-    if (user.role !== 'admin') {
-      showToast(
-        'Only administrators can access the Admin Dashboard.',
-        'error'
-      )
-
-      return
-    }
-
-    setCurrentView('admin')
 
     window.scrollTo({
       top: 0,
@@ -256,14 +217,16 @@ function App() {
 
         It will still be used on the other pages.
       */}
-      {![
+      {isStaff && (
+        <StaffHeader onLoggedOut={handleBackToHome} />
+      )}
+
+      {!isStaff && ![
         'home',
         'login',
         'register'
       ].includes(currentView) && (
         <Navbar
-          onNavigateToHost={handleNavigateToHost}
-          onNavigateToAdmin={handleNavigateToAdmin}
           onNavigateToLogin={handleNavigateToLogin}
           onNavigateToRegister={handleNavigateToRegister}
           onNavigateToMyBookings={handleNavigateToMyBookings}
@@ -290,10 +253,6 @@ function App() {
 
           onNavigateToHome={handleBackToHome}
 
-          onNavigateToHost={handleNavigateToHost}
-
-          onNavigateToAdmin={handleNavigateToAdmin}
-
           onNavigateToLogin={handleNavigateToLogin}
 
           onNavigateToRegister={handleNavigateToRegister}
@@ -315,15 +274,11 @@ function App() {
 
       ) : currentView === 'host' ? (
 
-        <HostDashboard
-          onBack={handleBackToHome}
-        />
+        <HostDashboard />
 
       ) : currentView === 'admin' ? (
 
-        <AdminDashboard
-          onBack={handleBackToHome}
-        />
+        <AdminDashboard />
 
       ) : currentView === 'login' ? (
 
@@ -418,7 +373,7 @@ function App() {
 
 
       {/* FOOTER */}
-      {![
+      {!isStaff && ![
         'login',
         'register',
         'howItWorks',

@@ -1,23 +1,12 @@
 import { useState } from 'react'
+import { countNights, formatDateLabel, formatMoney } from '../utils/pricing'
 
 function BookingRequestCard({ booking, onApprove, onDecline }) {
   const [isProcessing, setIsProcessing] = useState(false)
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
-    })
-  }
+  const formatDate = (dateString) => formatDateLabel(dateString)
 
-  const calculateNights = () => {
-    const checkIn = new Date(booking.checkIn)
-    const checkOut = new Date(booking.checkOut)
-    const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
-    return nights
-  }
+  const calculateNights = () => countNights(booking.checkIn, booking.checkOut)
 
   const handleApprove = async () => {
     setIsProcessing(true)
@@ -61,6 +50,12 @@ function BookingRequestCard({ booking, onApprove, onDecline }) {
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
             ✓ Completed
+          </span>
+        )
+      case 'cancelled':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-700">
+            Cancelled by guest
           </span>
         )
       default:
@@ -143,15 +138,15 @@ function BookingRequestCard({ booking, onApprove, onDecline }) {
         <div className="space-y-2 text-sm">
           <div className="flex justify-between text-gray-600">
             <span>${booking.pricePerNight} × {booking.nights} nights</span>
-            <span>${booking.subtotal.toFixed(2)}</span>
+            <span>{formatMoney(booking.subtotal)}</span>
           </div>
           <div className="flex justify-between text-gray-600">
             <span>Service fee</span>
-            <span>${booking.serviceFee.toFixed(2)}</span>
+            <span>{formatMoney(booking.serviceFee)}</span>
           </div>
           <div className="flex justify-between font-bold text-gray-900 text-base pt-2 border-t border-gray-200">
             <span>Total</span>
-            <span>${booking.totalPrice.toFixed(2)}</span>
+            <span>{formatMoney(booking.totalPrice)}</span>
           </div>
         </div>
       </div>

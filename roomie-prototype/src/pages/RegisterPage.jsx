@@ -9,7 +9,7 @@ function RegisterPage({ onBack, onSwitchToLogin, onShowToast }) {
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'renter'
+    role: 'customer'
   })
 
   const [errors, setErrors] = useState({})
@@ -76,7 +76,7 @@ function RegisterPage({ onBack, onSwitchToLogin, onShowToast }) {
         name: formData.name.trim(),
         email: formData.email,
         password: formData.password,
-        role: formData.role
+        role: 'customer'
       })
 
       if (result.success) {
@@ -225,7 +225,7 @@ function RegisterPage({ onBack, onSwitchToLogin, onShowToast }) {
               "
             >
               Create an account to discover rooms, explore immersive
-              3D tours, manage bookings, or list your own space.
+              3D tours and manage your bookings.
             </p>
           </div>
 
@@ -489,187 +489,6 @@ function RegisterPage({ onBack, onSwitchToLogin, onShowToast }) {
                     {errors.email}
                   </p>
                 )}
-
-              </div>
-
-
-              {/* ================= ROLE ================= */}
-              <div>
-
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  I want to...
-                </label>
-
-                <div className="grid grid-cols-3 gap-3">
-
-                  {/* RENTER */}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setFormData(prev => ({
-                        ...prev,
-                        role: 'renter'
-                      }))
-                    }
-                    className={`
-                      p-4
-                      rounded-xl
-                      border
-                      transition-all
-                      duration-200
-                      ${
-                        formData.role === 'renter'
-                          ? 'border-blue-500 bg-blue-50 shadow-sm'
-                          : 'border-gray-200 bg-white hover:border-gray-300'
-                      }
-                    `}
-                  >
-                    <svg
-                      className={`
-                        w-6
-                        h-6
-                        mx-auto
-                        mb-2
-                        ${
-                          formData.role === 'renter'
-                            ? 'text-blue-600'
-                            : 'text-gray-400'
-                        }
-                      `}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
-                    </svg>
-
-                    <span className="block text-sm font-semibold text-gray-800">
-                      Find Room
-                    </span>
-
-                    <span className="text-[11px] text-gray-500">
-                      Renter
-                    </span>
-                  </button>
-
-
-                  {/* HOST */}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setFormData(prev => ({
-                        ...prev,
-                        role: 'host'
-                      }))
-                    }
-                    className={`
-                      p-4
-                      rounded-xl
-                      border
-                      transition-all
-                      duration-200
-                      ${
-                        formData.role === 'host'
-                          ? 'border-purple-500 bg-purple-50 shadow-sm'
-                          : 'border-gray-200 bg-white hover:border-gray-300'
-                      }
-                    `}
-                  >
-                    <svg
-                      className={`
-                        w-6
-                        h-6
-                        mx-auto
-                        mb-2
-                        ${
-                          formData.role === 'host'
-                            ? 'text-purple-600'
-                            : 'text-gray-400'
-                        }
-                      `}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                      />
-                    </svg>
-
-                    <span className="block text-sm font-semibold text-gray-800">
-                      List Room
-                    </span>
-
-                    <span className="text-[11px] text-gray-500">
-                      Host
-                    </span>
-                  </button>
-
-
-                  {/* ADMIN */}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setFormData(prev => ({
-                        ...prev,
-                        role: 'admin'
-                      }))
-                    }
-                    className={`
-                      p-4
-                      rounded-xl
-                      border
-                      transition-all
-                      duration-200
-                      ${
-                        formData.role === 'admin'
-                          ? 'border-indigo-500 bg-indigo-50 shadow-sm'
-                          : 'border-gray-200 bg-white hover:border-gray-300'
-                      }
-                    `}
-                  >
-                    <svg
-                      className={`
-                        w-6
-                        h-6
-                        mx-auto
-                        mb-2
-                        ${
-                          formData.role === 'admin'
-                            ? 'text-indigo-600'
-                            : 'text-gray-400'
-                        }
-                      `}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                      />
-                    </svg>
-
-                    <span className="block text-sm font-semibold text-gray-800">
-                      Manage
-                    </span>
-
-                    <span className="text-[11px] text-gray-500">
-                      Admin
-                    </span>
-                  </button>
-
-                </div>
 
               </div>
 

@@ -75,7 +75,7 @@ function MyProfilePage({ onBack, onShowToast }) {
                 <div className="text-center sm:text-left pb-1 md:pb-2">
                   <h2 className="text-xl md:text-2xl font-bold text-gray-900">{user?.name}</h2>
                   <p className="text-sm md:text-base text-gray-600 capitalize flex items-center justify-center sm:justify-start gap-2 flex-wrap">
-                    <span>{user?.role === 'host' ? '🏠 Host' : '👤 Renter'}</span>
+                    <span>{user?.role === 'host' ? '🏠 Host' : '👤 Customer'}</span>
                     <span className="text-xs md:text-sm text-gray-400">• Member since {new Date(user?.createdAt || Date.now()).toLocaleDateString()}</span>
                   </p>
                 </div>

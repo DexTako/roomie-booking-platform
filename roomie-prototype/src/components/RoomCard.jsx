@@ -56,7 +56,7 @@ function RoomCard({ room, onSelect }) {
         {/* Wishlist Heart Button */}
         <button
           onClick={handleWishlistClick}
-          className="absolute top-3 right-14 w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-all hover:scale-110 shadow-lg group"
+          className="absolute top-14 right-3 w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-all hover:scale-110 shadow-lg group z-10"
           title={isFavorite ? 'Remove from wishlist' : 'Add to wishlist'}
         >
           <svg

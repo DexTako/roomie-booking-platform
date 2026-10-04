@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { getAllBookings } from '../data/bookings'
+import { getAllBookings, cancelBooking, subscribeToBookings } from '../data/bookings'
+import { todayISO, formatMoney, formatDateLabel } from '../utils/pricing'
 import { getRoomById } from '../data/rooms'
 import Breadcrumb from '../components/Breadcrumb'
 
@@ -11,7 +12,15 @@ function MyBookingsPage({ onBack, onViewRoom }) {
 
   useEffect(() => {
     loadBookings()
+    // Live: a host approving or declining a request shows up right away
+    return subscribeToBookings(loadBookings)
   }, [user])
+
+  const handleCancel = (bookingId) => {
+    if (window.confirm('Cancel this booking request? The dates will become available again.')) {
+      cancelBooking(bookingId)
+    }
+  }
 
   const loadBookings = () => {
     const allBookings = getAllBookings()
@@ -21,7 +30,7 @@ function MyBookingsPage({ onBack, onViewRoom }) {
   }
 
   const getFilteredBookings = () => {
-    const today = new Date().toISOString().split('T')[0]
+    const today = todayISO()
     
     switch(filter) {
       case 'upcoming':
@@ -43,6 +52,7 @@ function MyBookingsPage({ onBack, onViewRoom }) {
       case 'approved': return 'bg-green-100 text-green-800'
       case 'declined': return 'bg-red-100 text-red-800'
       case 'completed': return 'bg-gray-100 text-gray-800'
+      case 'cancelled': return 'bg-gray-100 text-gray-500'
       default: return 'bg-gray-100 text-gray-800'
     }
   }
@@ -136,11 +146,11 @@ function MyBookingsPage({ onBack, onViewRoom }) {
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                         <div>
                           <p className="text-sm text-gray-600">Check-in</p>
-                          <p className="font-semibold">{new Date(booking.checkIn).toLocaleDateString()}</p>
+                          <p className="font-semibold">{formatDateLabel(booking.checkIn)}</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-600">Check-out</p>
-                          <p className="font-semibold">{new Date(booking.checkOut).toLocaleDateString()}</p>
+                          <p className="font-semibold">{formatDateLabel(booking.checkOut)}</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-600">Guests</p>
@@ -148,7 +158,7 @@ function MyBookingsPage({ onBack, onViewRoom }) {
                         </div>
                         <div>
                           <p className="text-sm text-gray-600">Total</p>
-                          <p className="font-semibold text-blue-600">${booking.totalPrice.toFixed(2)}</p>
+                          <p className="font-semibold text-blue-600">{formatMoney(booking.totalPrice)}</p>
                         </div>
                       </div>
 
@@ -166,6 +176,14 @@ function MyBookingsPage({ onBack, onViewRoom }) {
                         >
                           View Room
                         </button>
+                        {(booking.status === 'pending' || booking.status === 'approved') && booking.checkOut >= todayISO() && (
+                          <button
+                            onClick={() => handleCancel(booking.id)}
+                            className="px-4 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors text-sm font-medium"
+                          >
+                            Cancel Booking
+                          </button>
+                        )}
                         {booking.status === 'approved' && (
                           <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
                             Contact Host
