@@ -123,6 +123,9 @@ function RoomDetailPage({ room, onBack, onNavigateToLogin, onNavigateToRegister 
         paymentMethod: bookingFormData.paymentMethod || 'card'
       }
 
+      // Debug logging
+      console.log('Sending booking data:', newBooking)
+
       // Send booking request to backend
       const result = await api.createBooking(newBooking)
       
