@@ -9,7 +9,9 @@ import {
   moveItemWithCollision,
   moveWalkerWithCollision,
   walkPositionFree,
-  findNearestFree
+  findNearestFree,
+  linkItems,
+  describePieceAt
 } from '../utils/roomPhysics'
 
 // Walk mode controls component
@@ -336,7 +338,7 @@ function MovableItem({ item, onDragChange, registerReset }) {
     }
 
     const onPointerDown = (event) => {
-      if (event.button !== 0) return
+      if (event.button !== 0 || event.altKey) return // Alt+click belongs to the debug item picker
       setRay(event)
       const h = hit()
       if (!h) return
@@ -399,6 +401,38 @@ function MovableItem({ item, onDragChange, registerReset }) {
     }
   }, [item, camera, gl, onDragChange])
 
+  return null
+}
+
+// Debug helper (?debug=true): Alt+click any object to get a ready-to-paste movableItems entry for it
+function ItemPicker({ floorY, onPick }) {
+  const { camera, gl, scene } = useThree()
+  useEffect(() => {
+    const canvas = gl.domElement
+    const ray = new THREE.Raycaster()
+    const ndc = new THREE.Vector2()
+    const onDown = (e) => {
+      if (!e.altKey || e.button !== 0) return
+      e.stopImmediatePropagation()
+      e.preventDefault()
+      const rect = canvas.getBoundingClientRect()
+      ndc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1)
+      ray.setFromCamera(ndc, camera)
+      // Look through ceilings, walls and other huge pieces to the first real piece of furniture
+      const hits = ray.intersectObjects(scene.children, true).filter(h => h.object.isMesh && h.faceIndex != null)
+      let best = null
+      let fallback = null
+      for (const h of hits.slice(0, 8)) {
+        const d = describePieceAt(scene, h, floorY)
+        if (!d) continue
+        if (!fallback) fallback = d
+        if (d.warnings.length === 0) { best = d; break }
+      }
+      onPick(best || fallback)
+    }
+    canvas.addEventListener('pointerdown', onDown, true)
+    return () => canvas.removeEventListener('pointerdown', onDown, true)
+  }, [camera, gl, scene, floorY, onPick])
   return null
 }
 
@@ -511,6 +545,7 @@ function RoomModel({ modelPath, isBooked, onModelInfo, scaleOverride, fixMateria
       }
       // Items are collision-tested against the room as it is once every item has been cut out
       for (const item of items) item.phys = buildItemGrid(scene, item, bounds)
+      linkItems(items) // items also stop at each other
       scene.userData.roomiePhysics = { bounds, walkGrid, items }
       console.log(`🪑 Movable items ready: ${items.map(i => i.label).join(', ') || 'none'}`)
     }
@@ -627,6 +662,8 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
   const [currentCoordinates, setCurrentCoordinates] = useState({ position: [0, 0, 0], target: [0, 0, 0] })
   const [showCopyFeedback, setShowCopyFeedback] = useState(false)
   const [physics, setPhysics] = useState(null) // movable items + collision grids once the model is ready
+  const [pickedPiece, setPickedPiece] = useState(null) // debug: last piece picked with Alt+click
+  const [copiedLine, setCopiedLine] = useState('')
   const [isDragging, setIsDragging] = useState(false)
   const controlsRef = useRef(null)
   const pointerLockRef = useRef(null)
@@ -1095,6 +1132,42 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
         </div>
       )}
 
+      {/* Debug: movable item picker (Alt+click an object) */}
+      {isDebugMode && (
+        <div className="absolute bottom-20 left-4 z-10 w-80 max-w-[calc(100%-2rem)] bg-black/90 text-white px-4 py-3 rounded-lg text-xs shadow-lg border-2 border-cyan-400">
+          <div className="font-semibold text-cyan-300 mb-1">DEBUG: Add a movable item</div>
+          {!pickedPiece ? (
+            <div className="text-gray-300">Hold <b>Alt</b> and click a piece of furniture. You get a line to paste into <span className="font-mono">movableItems</span> in <span className="font-mono">rooms.js</span>.</div>
+          ) : (
+            <div className="space-y-2">
+              <div className="text-gray-300">
+                Mesh <span className="font-mono text-white">{pickedPiece.meshName}</span> · size {pickedPiece.size.join(' × ')} · {pickedPiece.tris} tris
+              </div>
+              {pickedPiece.warnings.map((w, i) => (
+                <div key={i} className="text-yellow-300">⚠ {w}</div>
+              ))}
+              {[['By area', pickedPiece.byRegion], ['By mesh name', pickedPiece.byName]].filter(([, line]) => line).map(([label, line]) => (
+                <div key={label}>
+                  <div className="text-cyan-200 mb-0.5">{label}</div>
+                  <div className="font-mono text-[10px] bg-white/10 rounded p-1.5 break-all">{line}</div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(line)
+                      setCopiedLine(line)
+                    }}
+                    className="mt-1 px-2 py-1 rounded bg-cyan-500 hover:bg-cyan-400 text-black font-semibold"
+                  >
+                    {copiedLine === line ? 'Copied ✓' : 'Copy'}
+                  </button>
+                </div>
+              ))}
+              <button type="button" onClick={() => { setPickedPiece(null); setCopiedLine('') }} className="text-gray-400 hover:text-white underline">Clear</button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Debug Coordinate Readout */}
       {isDebugMode && (
         <div className="absolute bottom-20 right-4 z-10 bg-black/90 text-white px-4 py-3 rounded-lg text-xs shadow-lg border-2 border-yellow-400">
@@ -1204,6 +1277,7 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
           ))}
 
           {isDebugMode && <DebugBridge physics={physics} />}
+          {isDebugMode && physics && <ItemPicker floorY={physics.bounds.min.y} onPick={setPickedPiece} />}
 
           {/* Camera */}
           <CameraRig 

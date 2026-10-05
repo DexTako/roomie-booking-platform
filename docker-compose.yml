@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./roomie-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb+srv://dexrodueldeguzman_db_user:BcSvSWBrmtYPA6OW@roomie-booking.aiqjbmz.mongodb.net/roomie-booking?retryWrites=true&w=majority
+      - JWT_SECRET=roomie_booking_jwt_super_secret_key_2024_production_ready
+      - FRONTEND_URL=http://localhost:3000
+    networks:
+      - roomie-network
+
+  frontend:
+    build: ./roomie-prototype
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_URL=http://localhost:5000/api
+    depends_on:
+      - backend
+    networks:
+      - roomie-network
+
+networks:
+  roomie-network:
+    driver: bridge

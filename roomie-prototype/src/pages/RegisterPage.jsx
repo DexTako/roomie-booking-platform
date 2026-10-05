@@ -71,8 +71,8 @@ function RegisterPage({ onBack, onSwitchToLogin, onShowToast }) {
 
     setIsLoading(true)
 
-    setTimeout(() => {
-      const result = register({
+    try {
+      const result = await register({
         name: formData.name.trim(),
         email: formData.email,
         password: formData.password,
@@ -96,9 +96,14 @@ function RegisterPage({ onBack, onSwitchToLogin, onShowToast }) {
           'error'
         )
       }
-
+    } catch (error) {
+      setErrors({
+        general: 'An unexpected error occurred'
+      })
+      onShowToast?.('An unexpected error occurred', 'error')
+    } finally {
       setIsLoading(false)
-    }, 500)
+    }
   }
 
   return (

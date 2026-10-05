@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import BookingRequestCard from '../components/BookingRequestCard'
 import AvailabilityCalendar from '../components/AvailabilityCalendar'
 import { getAllBookings, updateBookingStatus, initializeBookings, subscribeToBookings } from '../data/bookings'
-import { rooms } from '../data/rooms'
+import api from '../services/api'
 import {
   countNights,
   addDaysISO,
@@ -15,6 +15,8 @@ import {
 
 function HostDashboard() {
   const [bookings, setBookings] = useState([])
+  const [rooms, setRooms] = useState([])
+  const [isLoadingRooms, setIsLoadingRooms] = useState(true)
   const [filter, setFilter] = useState('all') // all, pending, approved, declined, completed
   const [showNotification, setShowNotification] = useState(false)
   const [notificationMessage, setNotificationMessage] = useState('')
@@ -25,7 +27,27 @@ function HostDashboard() {
   })
   const [showNotesModal, setShowNotesModal] = useState(false)
   const [currentBookingId, setCurrentBookingId] = useState(null)
-  const [calendarRoomId, setCalendarRoomId] = useState(rooms[0]?.id ?? 1)
+  const [calendarRoomId, setCalendarRoomId] = useState(null)
+
+  // Fetch rooms on mount
+  useEffect(() => {
+    const fetchRooms = async () => {
+      setIsLoadingRooms(true)
+      try {
+        const data = await api.getAllRooms()
+        setRooms(data)
+        if (data.length > 0) {
+          setCalendarRoomId(data[0].id || data[0]._id)
+        }
+      } catch (error) {
+        console.error('Failed to fetch rooms:', error)
+      } finally {
+        setIsLoadingRooms(false)
+      }
+    }
+
+    fetchRooms()
+  }, [])
 
   // Load bookings on mount
   useEffect(() => {

@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: roomie-frontend
+    env: static
+    buildCommand: npm install && npm run build:prod
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://roomie-backend.onrender.com/api
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

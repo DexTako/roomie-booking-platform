@@ -58,8 +58,8 @@ function LoginPage({ onBack, onSwitchToRegister, onShowToast }) {
 
     setIsLoading(true)
 
-    setTimeout(() => {
-      const result = login(formData.email, formData.password)
+    try {
+      const result = await login(formData.email, formData.password)
 
       if (result.success) {
         onShowToast?.(
@@ -78,9 +78,14 @@ function LoginPage({ onBack, onSwitchToRegister, onShowToast }) {
           'error'
         )
       }
-
+    } catch (error) {
+      setErrors({
+        general: 'An unexpected error occurred'
+      })
+      onShowToast?.('An unexpected error occurred', 'error')
+    } finally {
       setIsLoading(false)
-    }, 500)
+    }
   }
 
   return (

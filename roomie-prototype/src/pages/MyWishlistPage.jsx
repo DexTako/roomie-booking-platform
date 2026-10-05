@@ -1,12 +1,33 @@
+import { useState, useEffect } from 'react'
 import { useWishlist } from '../context/WishlistContext'
-import { rooms } from '../data/rooms'
+import api from '../services/api'
 import RoomCard from '../components/RoomCard'
 import Breadcrumb from '../components/Breadcrumb'
 
 function MyWishlistPage({ onBack, onViewRoom }) {
   const { wishlist, wishlistCount } = useWishlist()
+  const [rooms, setRooms] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  const wishlistRooms = rooms.filter(room => wishlist.includes(room.id))
+  useEffect(() => {
+    const fetchRooms = async () => {
+      setIsLoading(true)
+      try {
+        const data = await api.getAllRooms()
+        setRooms(data)
+      } catch (error) {
+        console.error('Failed to fetch rooms:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchRooms()
+  }, [])
+
+  const wishlistRooms = rooms.filter(room => 
+    wishlist.includes(room.id) || wishlist.includes(room._id)
+  )
 
   return (
     <div className="min-h-screen bg-gray-50 pt-24">
@@ -44,7 +65,12 @@ function MyWishlistPage({ onBack, onViewRoom }) {
       {/* Content */}
       <div className="container mx-auto px-4 py-8">
 
-        {wishlistRooms.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-16">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+            <p className="text-gray-600">Loading your wishlist...</p>
+          </div>
+        ) : wishlistRooms.length === 0 ? (
           
           /* Empty State */
           <div className="max-w-md mx-auto text-center py-16">

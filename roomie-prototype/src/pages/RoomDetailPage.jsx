@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
+import api from '../services/api'
 import RoomViewer from '../components/RoomViewer'
 import RoomGallery from '../components/RoomGallery'
 import BookingWizard from '../components/BookingWizard'
@@ -8,6 +9,9 @@ import ReviewsSection from '../components/ReviewsSection'
 import AddReview from '../components/AddReview'
 import StarRating from '../components/StarRating'
 import Breadcrumb from '../components/Breadcrumb'
+import LoginPromptModal from '../components/LoginPromptModal'
+import NotificationModal from '../components/NotificationModal'
+import ConfirmationModal from '../components/ConfirmationModal'
 import { 
   getReviewsByRoom, 
   calculateAverageRating, 
@@ -15,10 +19,10 @@ import {
   addReview,
   initializeReviews
 } from '../data/reviews'
-import { addBooking, cancelBooking, initializeBookings } from '../data/bookings'
+import { cancelBooking, initializeBookings } from '../data/bookings'
 import { calculateStayPrice, formatDateLabel } from '../utils/pricing'
 
-function RoomDetailPage({ room, onBack }) {
+function RoomDetailPage({ room, onBack, onNavigateToLogin, onNavigateToRegister }) {
   const { user } = useAuth()
   const [isBooked, setIsBooked] = useState(false)
   const [bookingData, setBookingData] = useState(null)
@@ -29,6 +33,11 @@ function RoomDetailPage({ room, onBack }) {
   const [averageRating, setAverageRating] = useState(0)
   const [categoryAverages, setCategoryAverages] = useState(null)
   const [showAddReview, setShowAddReview] = useState(false)
+  
+  // Modal states
+  const [loginPromptModal, setLoginPromptModal] = useState({ isOpen: false })
+  const [notificationModal, setNotificationModal] = useState({ isOpen: false, title: '', message: '', type: 'success' })
+  const [confirmationModal, setConfirmationModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null })
 
   // Load reviews on mount
   useEffect(() => {
@@ -53,56 +62,98 @@ function RoomDetailPage({ room, onBack }) {
     setShowAddReview(false)
     
     // Show success message
-    alert('Thank you for your review! It has been posted successfully.')
+    showNotification('Review Posted!', 'Thank you for your review! It has been posted successfully.', 'success')
   }
 
-  const handleBooking = (bookingFormData) => {
+  // Modal helper functions  
+  const showLoginPrompt = () => {
+    setLoginPromptModal({ isOpen: true })
+  }
+
+  const handleLoginFromPrompt = () => {
+    // Use the proper navigation function passed from App.jsx
+    if (onNavigateToLogin) {
+      onNavigateToLogin()
+    }
+  }
+
+  const handleRegisterFromPrompt = () => {
+    // Use the proper navigation function passed from App.jsx
+    if (onNavigateToRegister) {
+      onNavigateToRegister()  
+    }
+  }
+
+  const showNotification = (title, message, type = 'success') => {
+    setNotificationModal({
+      isOpen: true,
+      title,
+      message,
+      type
+    })
+  }
+
+  const showConfirmation = (title, message, onConfirm) => {
+    setConfirmationModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm
+    })
+  }
+
+  const handleBooking = async (bookingFormData) => {
     // Check if user is logged in
     if (!user) {
-      alert('Please login to make a booking.')
+      showLoginPrompt()
       return
     }
 
-    // Create booking object
-    const newBooking = {
-      roomId: room.id,
-      roomName: room.name,
-      renterId: user.id,
-      renterName: bookingFormData.guestName,
-      renterEmail: bookingFormData.guestEmail,
-      renterPhone: bookingFormData.guestPhone || '',
-      checkIn: bookingFormData.checkIn,
-      checkOut: bookingFormData.checkOut,
-      guests: bookingFormData.guests,
-      pricePerNight: room.pricePerNight,
-      nights: bookingFormData.nights,
-      subtotal: bookingFormData.subtotal,
-      serviceFee: bookingFormData.serviceFee,
-      totalPrice: bookingFormData.total,
-      specialRequests: bookingFormData.specialRequests || ''
-    }
+    try {
+      // Create booking object
+      const newBooking = {
+        roomId: room.id || room._id,
+        checkInDate: bookingFormData.checkIn,
+        checkOutDate: bookingFormData.checkOut,
+        numberOfGuests: bookingFormData.guests,
+        totalPrice: bookingFormData.total,
+        specialRequests: bookingFormData.specialRequests || ''
+      }
 
-    // Add booking to localStorage store
-    const result = addBooking(newBooking)
-    
-    if (!result.success) {
-      alert(result.error)
-      return
+      // Send booking request to backend
+      const result = await api.createBooking(newBooking)
+      
+      setBookingData(result)
+      setIsBooked(true)
+      setShowBookingWizard(false)
+      setSelectedDates({ checkIn: '', checkOut: '' })
+      
+      showNotification(
+        'Booking Submitted!', 
+        '🎉 Your booking request has been submitted! The host will review your request and get back to you soon.',
+        'success'
+      )
+    } catch (error) {
+      console.error('Booking error:', error)
+      showNotification(
+        'Booking Failed',
+        error.response?.data?.message || 'Failed to create booking. Please try again.',
+        'error'
+      )
     }
-    
-    setBookingData(result.booking)
-    setIsBooked(true)
-    setShowBookingWizard(false)
-    setSelectedDates({ checkIn: '', checkOut: '' })
-    alert('🎉 Booking confirmed! Check your email for details.')
   }
 
   const handleCancelBooking = () => {
-    if (window.confirm('Are you sure you want to cancel this booking?')) {
-      if (bookingData?.id) cancelBooking(bookingData.id) // frees the dates on the calendar
-      setIsBooked(false)
-      setBookingData(null)
-    }
+    showConfirmation(
+      'Cancel Booking?',
+      'Are you sure you want to cancel this booking? This action cannot be undone.',
+      () => {
+        if (bookingData?.id) cancelBooking(bookingData.id) // frees the dates on the calendar
+        setIsBooked(false)
+        setBookingData(null)
+        showNotification('Booking Cancelled', 'Your booking has been cancelled successfully.', 'info')
+      }
+    )
   }
 
   const livePrice = calculateStayPrice(room.pricePerNight, selectedDates.checkIn, selectedDates.checkOut)
@@ -336,7 +387,7 @@ function RoomDetailPage({ room, onBack }) {
                       </p>
                     )}
                     <button
-                      onClick={() => user ? setShowBookingWizard(true) : alert('Please login to book')}
+                      onClick={() => user ? setShowBookingWizard(true) : showLoginPrompt()}
                       className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5"
                     >
                       Book Now
@@ -402,6 +453,33 @@ function RoomDetailPage({ room, onBack }) {
           initialDates={selectedDates}
         />
       )}
+
+      {/* Login Prompt Modal */}
+      <LoginPromptModal
+        isOpen={loginPromptModal.isOpen}
+        onClose={() => setLoginPromptModal({ isOpen: false })}
+        onLogin={handleLoginFromPrompt}
+        onRegister={handleRegisterFromPrompt}
+      />
+
+      {/* Notification Modal */}
+      <NotificationModal
+        isOpen={notificationModal.isOpen}
+        onClose={() => setNotificationModal({ ...notificationModal, isOpen: false })}
+        title={notificationModal.title}
+        message={notificationModal.message}
+        type={notificationModal.type}
+      />
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmationModal.isOpen}
+        onClose={() => setConfirmationModal({ ...confirmationModal, isOpen: false })}
+        onConfirm={confirmationModal.onConfirm}
+        title={confirmationModal.title}
+        message={confirmationModal.message}
+        type="warning"
+      />
     </div>
   )
 }

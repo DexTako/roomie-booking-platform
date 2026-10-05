@@ -3,7 +3,7 @@ import { useWishlist } from '../context/WishlistContext'
 import { useComparison } from '../context/ComparisonContext'
 import StarRating from './StarRating'
 
-function RoomCard({ room, onSelect }) {
+function RoomCard({ room, onSelect, onShowToast }) {
   const { toggleWishlist, isInWishlist } = useWishlist()
   const { addToComparison, removeFromComparison, isInComparison } = useComparison()
   const averageRating = calculateAverageRating(room.id)
@@ -23,7 +23,12 @@ function RoomCard({ room, onSelect }) {
     } else {
       const result = addToComparison(room.id)
       if (!result.success) {
-        alert(result.message)
+        if (onShowToast) {
+          onShowToast(result.message, 'warning')
+        } else {
+          // Fallback to alert if no toast function provided
+          alert(result.message)
+        }
       }
     }
   }

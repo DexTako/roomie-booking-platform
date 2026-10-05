@@ -17,7 +17,7 @@ import Navbar from './components/Navbar'
 import StaffHeader from './components/StaffHeader'
 import LoadingScreen from './components/LoadingScreen'
 import Toast from './components/Toast'
-import { getRoomById } from './data/rooms'
+import api from './services/api'
 import { useAuth } from './context/AuthContext'
 import { useComparison } from './context/ComparisonContext'
 
@@ -27,6 +27,7 @@ function App() {
 
   const [viewState, setCurrentView] = useState('home')
   const [selectedRoomId, setSelectedRoomId] = useState(null)
+  const [selectedRoom, setSelectedRoom] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [toast, setToast] = useState(null)
 
@@ -50,16 +51,22 @@ function App() {
 
 
   // SELECT ROOM
-  const handleSelectRoom = roomId => {
-    const room = getRoomById(roomId)
-    
+  const handleSelectRoom = async roomId => {
+    let room = null
+    try {
+      room = await api.getRoomById(roomId)
+    } catch (error) {
+      console.error('Failed to load room:', error)
+    }
+
     // If room doesn't exist, show 404
-    if (!room) {
+    if (!room || (!room._id && !room.id)) {
       setCurrentView('notFound')
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
 
+    setSelectedRoom(room)
     setSelectedRoomId(roomId)
     setCurrentView('detail')
 
@@ -74,6 +81,7 @@ function App() {
   const handleBackToHome = () => {
     setCurrentView('home')
     setSelectedRoomId(null)
+    setSelectedRoom(null)
 
     window.scrollTo({
       top: 0,
@@ -195,11 +203,6 @@ function App() {
   }
 
 
-  const selectedRoom = selectedRoomId
-    ? getRoomById(selectedRoomId)
-    : null
-
-
   // LOADING
   if (isLoading || authLoading) {
     return <LoadingScreen />
@@ -270,6 +273,8 @@ function App() {
           onNavigateToHowItWorks={handleNavigateToHowItWorks}
 
           onNavigateToContact={handleNavigateToContact}
+          
+          onShowToast={showToast}
         />
 
       ) : currentView === 'host' ? (
@@ -356,6 +361,8 @@ function App() {
           <RoomDetailPage
             room={selectedRoom}
             onBack={handleBackToHome}
+            onNavigateToLogin={handleNavigateToLogin}
+            onNavigateToRegister={handleNavigateToRegister}
           />
         )
 

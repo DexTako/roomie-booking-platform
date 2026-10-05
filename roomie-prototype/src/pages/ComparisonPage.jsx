@@ -1,16 +1,49 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useComparison } from '../context/ComparisonContext'
 import { calculatePrice, formatMoney } from '../utils/pricing'
-import { getRoomById } from '../data/rooms'
+import api from '../services/api'
 import Breadcrumb from '../components/Breadcrumb'
 
 function ComparisonPage({ onBack, onViewRoom }) {
   const { comparison, removeFromComparison, clearComparison } = useComparison()
   const [nights, setNights] = useState(3) // live stay length used for the total row
+  const [rooms, setRooms] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchRooms = async () => {
+      setIsLoading(true)
+      try {
+        const data = await api.getAllRooms()
+        setRooms(data)
+      } catch (error) {
+        console.error('Failed to fetch rooms:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchRooms()
+  }, [])
 
   // Safety check - ensure comparison is an array
   const comparisonArray = Array.isArray(comparison) ? comparison : []
-  const comparisonRooms = comparisonArray.map(id => getRoomById(id)).filter(Boolean)
+  const comparisonRooms = comparisonArray
+    .map(id => rooms.find(room => room.id === id || room._id === id))
+    .filter(Boolean)
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8 pt-24">
+        <div className="container mx-auto px-4 max-w-7xl">
+          <div className="text-center py-16">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+            <p className="text-gray-600">Loading comparison...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (comparisonRooms.length === 0) {
     return (

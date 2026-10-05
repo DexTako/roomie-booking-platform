@@ -555,3 +555,83 @@ export function moveWalkerWithCollision(grid, x, z, dx, dz) {
   }
   return { x: cx, z: cz }
 }
+
+// ======================= ITEM LINKING =======================================
+
+// Make items collide with each other: when `a` moves it stops at `b` and vice versa
+export function linkItems(items) {
+  for (const a of items) {
+    for (const b of items) {
+      if (a === b || !a.phys || !b.phys) continue
+      // Mark b's footprint as blocked in a's grid
+      const g = a.phys.grid
+      const bb = b.baseBox
+      const ox = b.group.position.x
+      const oz = b.group.position.z
+      const minX = bb.min.x + ox
+      const maxX = bb.max.x + ox
+      const minZ = bb.min.z + oz
+      const maxZ = bb.max.z + oz
+      const i0 = Math.max(0, Math.floor((minX - g.minX) / g.cell))
+      const i1 = Math.min(g.nx - 1, Math.floor((maxX - g.minX) / g.cell))
+      const k0 = Math.max(0, Math.floor((minZ - g.minZ) / g.cell))
+      const k1 = Math.min(g.nz - 1, Math.floor((maxZ - g.minZ) / g.cell))
+      for (let k = k0; k <= k1; k++) {
+        for (let i = i0; i <= i1; i++) {
+          g.data[k * g.nx + i] = 1
+        }
+      }
+    }
+    // Rebuild SAT after marking all other items
+    finalizeGrid(a.phys.grid)
+  }
+}
+
+// ======================= PIECE DESCRIPTION ==================================
+
+// Describe what mesh/piece was clicked on (for the info popup)
+export function describePieceAt(scene, intersect, floorY) {
+  if (!intersect || !intersect.object) return null
+  
+  const mesh = intersect.object
+  const point = intersect.point
+  
+  // Check if it's a movable item
+  let movableItem = null
+  let parent = mesh.parent
+  while (parent) {
+    if (parent.name && parent.name.startsWith('movable_')) {
+      movableItem = parent
+      break
+    }
+    parent = parent.parent
+  }
+  
+  if (movableItem) {
+    // Extract the item ID from the group name (format: movable_{id})
+    const id = movableItem.name.replace('movable_', '')
+    return {
+      type: 'movable',
+      id: id,
+      label: movableItem.userData.label || id,
+      position: point.clone()
+    }
+  }
+  
+  // Check if it's a regular mesh with a name
+  if (mesh.name) {
+    return {
+      type: 'static',
+      name: mesh.name,
+      label: mesh.name,
+      position: point.clone()
+    }
+  }
+  
+  // Generic fallback
+  return {
+    type: 'geometry',
+    label: 'Room element',
+    position: point.clone()
+  }
+}

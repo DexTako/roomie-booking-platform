@@ -3,7 +3,7 @@ import RoomCard from '../components/RoomCard'
 import AdvancedFilters from '../components/AdvancedFilters'
 import SearchBar from '../components/SearchBar'
 import LogoutConfirmModal from '../components/LogoutConfirmModal'
-import { rooms } from '../data/rooms'
+import api from '../services/api'
 import { useWishlist } from '../context/WishlistContext'
 import { useComparison } from '../context/ComparisonContext'
 import { useAuth } from '../context/AuthContext'
@@ -21,11 +21,14 @@ function HomePage({
   onNavigateToMyProfile,
   onNavigateToSettings,
   onNavigateToHowItWorks,
-  onNavigateToContact
+  onNavigateToContact,
+  onShowToast
 }) {
   const { wishlistCount } = useWishlist()
   const { comparisonCount } = useComparison()
   const { logout } = useAuth()
+  const [rooms, setRooms] = useState([])
+  const [isLoadingRooms, setIsLoadingRooms] = useState(true)
   const [filterTheme, setFilterTheme] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [advancedFilters, setAdvancedFilters] = useState({
@@ -40,6 +43,23 @@ function HomePage({
   const [showLogoutModal, setShowLogoutModal] = useState(false)
 
   const hideTimer = useRef(null)
+
+  // Fetch rooms from API on mount
+  useEffect(() => {
+    const fetchRooms = async () => {
+      setIsLoadingRooms(true)
+      try {
+        const data = await api.getAllRooms()
+        setRooms(data)
+      } catch (error) {
+        console.error('Failed to fetch rooms:', error)
+      } finally {
+        setIsLoadingRooms(false)
+      }
+    }
+
+    fetchRooms()
+  }, [])
 
   // Apply all filters
   const applyFilters = (roomsList) => {
@@ -1288,21 +1308,27 @@ function HomePage({
 
 
           {/* ROOM GRID */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-
-            {filteredRooms.map(room => (
-              <RoomCard
-                key={room.id}
-                room={room}
-                onSelect={onSelectRoom}
-              />
-            ))}
-
-          </div>
+          {isLoadingRooms ? (
+            <div className="text-center py-16">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+              <p className="text-gray-600">Loading rooms...</p>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredRooms.map(room => (
+                <RoomCard
+                  key={room.id}
+                  room={room}
+                  onSelect={onSelectRoom}
+                  onShowToast={onShowToast}
+                />
+              ))}
+            </div>
+          )}
 
 
           {/* NO RESULTS */}
-          {filteredRooms.length === 0 && (
+          {!isLoadingRooms && filteredRooms.length === 0 && (
             <div className="text-center py-16">
 
               <svg

@@ -2,13 +2,12 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
-import { AuthProvider, initializeDefaultAccounts } from './context/AuthContext.jsx'
+import { AuthProvider } from './context/AuthContext.jsx'
 import { WishlistProvider } from './context/WishlistContext.jsx'
 import { ComparisonProvider } from './context/ComparisonContext.jsx'
 import { initializeReviews } from './data/reviews.js'
 
-// Seed default accounts and reviews on app start
-initializeDefaultAccounts()
+// Seed reviews on app start (accounts now live in the backend DB)
 initializeReviews()
 
 ReactDOM.createRoot(document.getElementById('root')).render(

@@ -1,66 +1,10 @@
-import { addDaysISO, todayISO, countNights, calculatePrice } from '../utils/pricing'
-import { getRoomById } from './rooms'
+import { addDaysISO, todayISO, countNights } from '../utils/pricing'
 
-// Seed bookings are created relative to today so the availability calendar
-// always has realistic upcoming stays to show.
 const SEED_VERSION = 2
 
-const buildSeed = () => {
-  const today = todayISO()
-  const make = (id, roomId, guest, startOffset, nights, status, specialRequests, createdOffset) => {
-    const room = getRoomById(roomId)
-    const roomName = room.name
-    const price = room.pricePerNight
-    const checkIn = addDaysISO(today, startOffset)
-    const checkOut = addDaysISO(checkIn, nights)
-    const p = calculatePrice(price, nights)
-    return {
-      id,
-      roomId,
-      roomName,
-      renterId: guest.id,
-      renterName: guest.name,
-      renterEmail: guest.email,
-      renterPhone: guest.phone,
-      checkIn,
-      checkOut,
-      guests: 2,
-      pricePerNight: price,
-      nights: p.nights,
-      subtotal: p.subtotal,
-      serviceFee: p.serviceFee,
-      totalPrice: p.total,
-      status, // pending, approved, declined, completed
-      specialRequests,
-      createdAt: new Date(Date.now() + createdOffset * 86400000).toISOString(),
-      isSeed: true
-    }
-  }
-
-  return [
-    make(1, 1,
-      { id: "user_001", name: "Sarah Johnson", email: "sarah.johnson@email.com", phone: "+1 (555) 123-4567" },
-      6, 3, "pending", "Early check-in if possible", -1),
-    make(2, 2,
-      { id: "user_002", name: "Michael Chen", email: "michael.chen@email.com", phone: "+1 (555) 987-6543" },
-      10, 5, "pending", "", -2),
-    make(3, 1,
-      { id: "user_003", name: "Emily Rodriguez", email: "emily.r@email.com", phone: "+1 (555) 456-7890" },
-      14, 6, "approved", "", -4),
-    make(4, 3,
-      { id: "user_004", name: "David Park", email: "david.park@email.com", phone: "+1 (555) 234-5678" },
-      3, 2, "declined", "", -6),
-    make(5, 1,
-      { id: "user_002", name: "Michael Chen", email: "michael.chen@email.com", phone: "+1 (555) 987-6543" },
-      -12, 4, "completed", "", -20),
-    make(6, 2,
-      { id: "user_003", name: "Emily Rodriguez", email: "emily.r@email.com", phone: "+1 (555) 456-7890" },
-      22, 3, "approved", "", -3),
-    make(7, 4,
-      { id: "user_004", name: "David Park", email: "david.park@email.com", phone: "+1 (555) 234-5678" },
-      8, 4, "approved", "", -5)
-  ]
-}
+// Seed bookings are disabled: rooms now come from the backend, so there is no
+// static room list to build fake bookings from. Real bookings come from the API.
+const buildSeed = () => []
 
 export const bookings = buildSeed()
 
@@ -147,7 +91,7 @@ export const initializeBookings = () => {
     try { existing = JSON.parse(stored) } catch (e) { existing = [] }
     // Old seed bookings were ids 1-4 (no isSeed flag); anything else was made by a user
     const keep = existing.filter(b => !b.isSeed && b.id > 4)
-    const maxSeedId = Math.max(...bookings.map(b => b.id))
+    const maxSeedId = bookings.length ? Math.max(...bookings.map(b => b.id)) : 0
     // Re-number kept user bookings so they never collide with the new seed ids
     const renumbered = keep.map((b, i) => ({ ...b, id: maxSeedId + 1 + i }))
     localStorage.setItem('bookings', JSON.stringify([...bookings, ...renumbered]))

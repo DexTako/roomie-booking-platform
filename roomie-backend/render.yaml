@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: roomie-backend
+    env: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        fromDatabase:
+          name: roomie-mongodb
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        value: https://roomie-frontend.onrender.com
+    healthCheckPath: /health
