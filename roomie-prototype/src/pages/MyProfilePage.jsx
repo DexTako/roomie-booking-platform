@@ -9,7 +9,8 @@ function MyProfilePage({ onBack, onShowToast }) {
     name: user?.name || '',
     phone: user?.phone || '',
     bio: user?.bio || '',
-    address: user?.address || ''
+    address: user?.address || '',
+    profilePicture: user?.profilePicture || ''
   })
 
   const handleChange = (e) => {
@@ -19,14 +20,19 @@ function MyProfilePage({ onBack, onShowToast }) {
     })
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    const result = updateProfile(formData)
-    
-    if (result.success) {
-      setIsEditing(false)
-      onShowToast('Profile updated successfully!', 'success')
-    } else {
+    try {
+      const result = await updateProfile(formData)
+      
+      if (result.success) {
+        setIsEditing(false)
+        onShowToast('Profile updated successfully!', 'success')
+      } else {
+        onShowToast('Failed to update profile', 'error')
+      }
+    } catch (error) {
+      console.error('Profile update error:', error)
       onShowToast('Failed to update profile', 'error')
     }
   }
@@ -36,7 +42,8 @@ function MyProfilePage({ onBack, onShowToast }) {
       name: user?.name || '',
       phone: user?.phone || '',
       bio: user?.bio || '',
-      address: user?.address || ''
+      address: user?.address || '',
+      profilePicture: user?.profilePicture || ''
     })
     setIsEditing(false)
   }
@@ -67,8 +74,19 @@ function MyProfilePage({ onBack, onShowToast }) {
           <div className="px-4 md:px-8 pb-6 md:pb-8">
             <div className="flex flex-col sm:flex-row sm:items-end justify-between -mt-12 md:-mt-16 mb-4 md:mb-6 gap-4">
               <div className="flex flex-col sm:flex-row items-center sm:items-end gap-3 md:gap-4">
-                <div className="w-24 h-24 md:w-32 md:h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center border-4 border-white shadow-lg flex-shrink-0">
-                  <span className="text-white font-bold text-3xl md:text-4xl">
+                <div className="w-24 h-24 md:w-32 md:h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center border-4 border-white shadow-lg flex-shrink-0 overflow-hidden">
+                  {user?.profilePicture ? (
+                    <img 
+                      src={user.profilePicture} 
+                      alt={user.name} 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.style.display = 'none'
+                        e.target.nextSibling.style.display = 'flex'
+                      }}
+                    />
+                  ) : null}
+                  <span className={`text-white font-bold text-3xl md:text-4xl ${user?.profilePicture ? 'hidden' : ''}`}>
                     {user?.name?.charAt(0).toUpperCase()}
                   </span>
                 </div>
@@ -96,6 +114,38 @@ function MyProfilePage({ onBack, onShowToast }) {
 
             {/* Profile Form */}
             <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
+              {/* Profile Picture URL */}
+              {isEditing && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Profile Picture URL
+                  </label>
+                  <input
+                    type="url"
+                    name="profilePicture"
+                    value={formData.profilePicture}
+                    onChange={handleChange}
+                    placeholder="https://example.com/profile.jpg"
+                    className="w-full px-3 md:px-4 py-2 md:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm md:text-base"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Enter a URL to your profile picture (e.g., from Imgur, Gravatar, etc.)</p>
+                  {formData.profilePicture && (
+                    <div className="mt-2">
+                      <img 
+                        src={formData.profilePicture} 
+                        alt="Preview" 
+                        className="w-20 h-20 rounded-full object-cover border-2 border-gray-300"
+                        onError={(e) => {
+                          e.target.src = ''
+                          e.target.alt = 'Invalid image URL'
+                          e.target.className = 'hidden'
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">

@@ -109,15 +109,28 @@ export const AuthProvider = ({ children }) => {
     return user?.role === role
   }
 
-  // Update user profile (currently uses localStorage, can be extended with API call)
-  const updateProfile = (updates) => {
+  // Update user profile - calls backend API
+  const updateProfile = async (updates) => {
     if (!user) return { success: false, error: 'No user logged in' }
 
-    const updatedUser = { ...user, ...updates }
-    setUser(updatedUser)
-    localStorage.setItem('currentUser', JSON.stringify(updatedUser))
-
-    return { success: true, user: updatedUser }
+    try {
+      const response = await api.auth.updateProfile(updates)
+      
+      if (response.success && response.user) {
+        const updatedUser = response.user
+        setUser(updatedUser)
+        localStorage.setItem('currentUser', JSON.stringify(updatedUser))
+        return { success: true, user: updatedUser }
+      }
+      
+      return { success: false, error: 'Failed to update profile' }
+    } catch (error) {
+      console.error('Update profile error:', error)
+      return { 
+        success: false, 
+        error: error.message || 'Failed to update profile' 
+      }
+    }
   }
 
   const value = {

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import BookingRequestCard from '../components/BookingRequestCard'
 import AvailabilityCalendar from '../components/AvailabilityCalendar'
-import { getAllBookings, updateBookingStatus, initializeBookings, subscribeToBookings } from '../data/bookings'
 import api from '../services/api'
 import {
   countNights,
@@ -17,6 +16,7 @@ function HostDashboard() {
   const [bookings, setBookings] = useState([])
   const [rooms, setRooms] = useState([])
   const [isLoadingRooms, setIsLoadingRooms] = useState(true)
+  const [isLoadingBookings, setIsLoadingBookings] = useState(true)
   const [filter, setFilter] = useState('all') // all, pending, approved, declined, completed
   const [showNotification, setShowNotification] = useState(false)
   const [notificationMessage, setNotificationMessage] = useState('')
@@ -49,29 +49,62 @@ function HostDashboard() {
     fetchRooms()
   }, [])
 
-  // Load bookings on mount
+  // Load bookings from backend
   useEffect(() => {
-    initializeBookings()
     loadBookings()
-    // Live: refresh whenever a booking is created, approved, declined or cancelled
-    return subscribeToBookings(loadBookings)
   }, [])
 
-  const loadBookings = () => {
-    const allBookings = getAllBookings()
-    setBookings(allBookings)
+  const loadBookings = async () => {
+    setIsLoadingBookings(true)
+    try {
+      const response = await api.bookings.getAll()
+      // Backend returns { success: true, bookings: [...] }
+      const bookingsData = response.bookings || response || []
+      
+      // Transform backend data to match frontend format
+      const transformedBookings = bookingsData.map(booking => ({
+        id: booking._id,
+        roomId: booking.room?._id || booking.room,
+        roomName: booking.room?.name || 'Unknown Room',
+        renterName: booking.user?.name || 'Guest',
+        renterEmail: booking.user?.email || '',
+        checkIn: booking.checkInDate?.split('T')[0] || booking.checkInDate,
+        checkOut: booking.checkOutDate?.split('T')[0] || booking.checkOutDate,
+        guests: booking.numberOfGuests || 1,
+        totalPrice: booking.totalPrice || 0,
+        status: booking.status,
+        createdAt: booking.createdAt
+      }))
+      
+      setBookings(transformedBookings)
+    } catch (error) {
+      console.error('Failed to fetch bookings:', error)
+      showNotificationMessage('Failed to load bookings')
+    } finally {
+      setIsLoadingBookings(false)
+    }
   }
 
-  const handleApprove = (bookingId) => {
-    updateBookingStatus(bookingId, 'approved')
-    loadBookings() // Reload to show updated status
-    showNotificationMessage('Booking approved successfully! ✓')
+  const handleApprove = async (bookingId) => {
+    try {
+      await api.bookings.updateStatus(bookingId, 'approved')
+      await loadBookings() // Reload to show updated status
+      showNotificationMessage('Booking approved successfully! ✓')
+    } catch (error) {
+      console.error('Failed to approve booking:', error)
+      showNotificationMessage('Failed to approve booking')
+    }
   }
 
-  const handleDecline = (bookingId) => {
-    updateBookingStatus(bookingId, 'declined')
-    loadBookings() // Reload to show updated status
-    showNotificationMessage('Booking declined.')
+  const handleDecline = async (bookingId) => {
+    try {
+      await api.bookings.updateStatus(bookingId, 'declined')
+      await loadBookings() // Reload to show updated status
+      showNotificationMessage('Booking declined.')
+    } catch (error) {
+      console.error('Failed to decline booking:', error)
+      showNotificationMessage('Failed to decline booking')
+    }
   }
 
   const showNotificationMessage = (message) => {

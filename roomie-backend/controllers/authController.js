@@ -125,6 +125,9 @@ exports.login = async (req, res) => {
         email: user.email,
         role: user.role,
         phone: user.phone,
+        address: user.address,
+        bio: user.bio,
+        profilePicture: user.profilePicture,
         createdAt: user.createdAt
       }
     });
@@ -153,6 +156,8 @@ exports.getMe = async (req, res) => {
         email: user.email,
         role: user.role,
         phone: user.phone,
+        address: user.address,
+        bio: user.bio,
         profilePicture: user.profilePicture,
         createdAt: user.createdAt
       }
@@ -172,7 +177,7 @@ exports.getMe = async (req, res) => {
 // @access  Private
 exports.updateProfile = async (req, res) => {
   try {
-    const { name, phone, profilePicture } = req.body;
+    const { name, phone, address, bio, profilePicture } = req.body;
 
     const user = await User.findById(req.user._id);
 
@@ -186,6 +191,8 @@ exports.updateProfile = async (req, res) => {
     // Update only allowed fields
     if (name) user.name = name;
     if (phone !== undefined) user.phone = phone;
+    if (address !== undefined) user.address = address;
+    if (bio !== undefined) user.bio = bio;
     if (profilePicture !== undefined) user.profilePicture = profilePicture;
 
     await user.save();
@@ -199,7 +206,10 @@ exports.updateProfile = async (req, res) => {
         email: user.email,
         role: user.role,
         phone: user.phone,
-        profilePicture: user.profilePicture
+        address: user.address,
+        bio: user.bio,
+        profilePicture: user.profilePicture,
+        createdAt: user.createdAt
       }
     });
   } catch (error) {

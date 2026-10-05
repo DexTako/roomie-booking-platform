@@ -34,6 +34,16 @@ const userSchema = new mongoose.Schema({
     trim: true,
     default: ''
   },
+  address: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  bio: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   profilePicture: {
     type: String,
     default: ''
