@@ -14,9 +14,39 @@ const app = express();
 
 // Production-ready middleware
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? (process.env.FRONTEND_URL || 'https://your-frontend-domain.onrender.com').split(',').map(url => url.trim())
-    : ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Define allowed origins
+    const allowedOrigins = process.env.NODE_ENV === 'production' 
+      ? [
+          // Main Vercel production URL
+          'https://roomie-booking-platform-ub23.vercel.app',
+          // Allow any Vercel preview URL pattern
+          /^https:\/\/roomie-booking-platform-ub23-.*\.vercel\.app$/,
+          // Also support the specific frontend URL if set
+          ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(url => url.trim()) : [])
+        ]
+      : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+    
+    // Check if origin is allowed
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      if (typeof allowedOrigin === 'string') {
+        return allowedOrigin === origin;
+      } else if (allowedOrigin instanceof RegExp) {
+        return allowedOrigin.test(origin);
+      }
+      return false;
+    });
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token']
