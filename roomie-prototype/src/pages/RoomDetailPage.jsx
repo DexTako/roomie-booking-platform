@@ -103,7 +103,7 @@ function RoomDetailPage({ room, onBack, onNavigateToLogin, onNavigateToRegister 
   }
 
   const handleBooking = async (bookingFormData) => {
-    // Check if user is logged in
+    // Check if user is logged in - Fixed field names for backend API
     if (!user) {
       showLoginPrompt()
       return
