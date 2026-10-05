@@ -1,16 +1,13 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import AvailabilityCalendar from './AvailabilityCalendar'
+import PaymentForm from './PaymentForm'
 import { findNextAvailableRange, isRangeAvailable } from '../data/bookings'
 import { calculateStayPrice, formatDateLabel } from '../utils/pricing'
-
-function BookingWizard({ room, onClose, onComplete, initialDates }) {
-  const { user } = useAuth()
   const [currentStep, setCurrentStep] = useState(1)
-  const [dateNotice, setDateNotice] = useState('')
   const [bookingData, setBookingData] = useState({
-    checkIn: initialDates?.checkIn || '',
-    checkOut: initialDates?.checkOut || '',
+    checkIn: '',
+    checkOut: '',
     guests: 1,
     guestName: user?.name || '',
     guestEmail: user?.email || '',
@@ -22,17 +19,23 @@ function BookingWizard({ room, onClose, onComplete, initialDates }) {
   const steps = [
     { number: 1, title: 'Dates', icon: '📅' },
     { number: 2, title: 'Guests', icon: '👥' },
-    { number: 3, title: 'Payment', icon: '💳' },
-    { number: 4, title: 'Confirm', icon: '✓' }
-  ]
+  const steps = [
+    { number: 1, title: 'Dates', icon: '📅' },
+    { number: 2, title: 'Details', icon: '👥' },
+    { number: 3, title: 'Payment', icon: '💳' }
+  ]onst calculateNights = () => {
+    if (!bookingData.checkIn || !bookingData.checkOut) return 0
+    const start = new Date(bookingData.checkIn)
+    const end = new Date(bookingData.checkOut)
+    const nights = Math.ceil((end - start) / (1000 * 60 * 60 * 24))
+    return nights > 0 ? nights : 0
+  }
 
-  // Live price calculation (shared helper keeps every screen consistent)
-  const { nights, subtotal, serviceFee, total } = calculateStayPrice(
-    room.pricePerNight,
-    bookingData.checkIn,
-    bookingData.checkOut
-  )
-
+  const nights = calculateNights()
+  const subtotal = nights * room.pricePerNight
+  const handleNext = () => {
+    if (currentStep < 3) setCurrentStep(currentStep + 1)
+  }
   const handleNext = () => {
     if (currentStep < 4) setCurrentStep(currentStep + 1)
   }
@@ -46,21 +49,16 @@ function BookingWizard({ room, onClose, onComplete, initialDates }) {
       ...bookingData,
       roomId: room.id,
       nights,
-      subtotal,
-      serviceFee,
       total
     })
   }
 
   const isStepValid = () => {
     if (currentStep === 1) {
-      return nights > 0 && isRangeAvailable(room.id, bookingData.checkIn, bookingData.checkOut)
+      return bookingData.checkIn && bookingData.checkOut && nights > 0
     }
     if (currentStep === 2) {
       return bookingData.guestName && bookingData.guestEmail && bookingData.guests > 0
-    }
-    if (currentStep === 3) {
-      return bookingData.paymentMethod
     }
     return true
   }
@@ -68,7 +66,7 @@ function BookingWizard({ room, onClose, onComplete, initialDates }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
       
-      <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-3xl shadow-2xl mok ax-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         
         {/* Header */}
         <div className="p-6 border-b bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
@@ -123,15 +121,33 @@ function BookingWizard({ room, onClose, onComplete, initialDates }) {
                 <p className="text-gray-600">Select your check-in and check-out dates</p>
               </div>
 
-              <AvailabilityCalendar
-                roomId={room.id}
-                checkIn={bookingData.checkIn}
-                checkOut={bookingData.checkOut}
-                onChange={(dates) => {
-                  setDateNotice('')
-                  setBookingData(prev => ({ ...prev, ...dates }))
-                }}
-              />
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Check-in Date
+                  </label>
+                  <input
+                    type="date"
+                    value={bookingData.checkIn}
+                    onChange={(e) => setBookingData({ ...bookingData, checkIn: e.target.value })}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Check-out Date
+                  </label>
+                  <input
+                    type="date"
+                    value={bookingData.checkOut}
+                    onChange={(e) => setBookingData({ ...bookingData, checkOut: e.target.value })}
+                    min={bookingData.checkIn || new Date().toISOString().split('T')[0]}
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
+              </div>
 
               {nights > 0 && (
                 <div className="p-4 bg-blue-50 rounded-xl border-2 border-blue-200">
@@ -141,7 +157,7 @@ function BookingWizard({ room, onClose, onComplete, initialDates }) {
                         <span className="text-2xl">{nights}</span> {nights === 1 ? 'night' : 'nights'}
                       </p>
                       <p className="text-xs text-blue-700 mt-1">
-                        ${room.pricePerNight} × {nights} = ${subtotal.toFixed(2)} + ${serviceFee.toFixed(2)} service fee
+                        ${room.pricePerNight} × {nights} = ${subtotal.toFixed(2)}
                       </p>
                     </div>
                     <div className="text-right">
@@ -152,27 +168,31 @@ function BookingWizard({ room, onClose, onComplete, initialDates }) {
                 </div>
               )}
 
-              {/* Quick Date Suggestions - jump to the next free window */}
+              {/* Quick Date Suggestions */}
               <div>
-                <p className="text-sm font-semibold text-gray-700 mb-3">Next available:</p>
+                <p className="text-sm font-semibold text-gray-700 mb-3">Quick Select:</p>
                 <div className="flex flex-wrap gap-2">
                   {[
-                    { label: '2 nights', days: 2 },
-                    { label: '1 week', days: 7 },
-                    { label: '2 weeks', days: 14 },
-                    { label: '1 month', days: 30 }
+                    { label: 'This Weekend', days: 2 },
+                    { label: 'Next Week', days: 7 },
+                    { label: '2 Weeks', days: 14 },
+                    { label: '1 Month', days: 30 }
                   ].map(option => (
                     <button
                       key={option.label}
                       type="button"
                       onClick={() => {
-                        const range = findNextAvailableRange(room.id, option.days)
-                        if (range) {
-                          setDateNotice('')
-                          setBookingData(prev => ({ ...prev, ...range }))
-                        } else {
-                          setDateNotice(`No ${option.label} window is free in the next year.`)
-                        }
+                        const today = new Date()
+                        const checkIn = new Date(today)
+                        checkIn.setDate(today.getDate() + 1)
+                        const checkOut = new Date(checkIn)
+                        checkOut.setDate(checkIn.getDate() + option.days)
+                        
+                        setBookingData({
+                          ...bookingData,
+                          checkIn: checkIn.toISOString().split('T')[0],
+                          checkOut: checkOut.toISOString().split('T')[0]
+                        })
                       }}
                       className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"
                     >
@@ -180,7 +200,6 @@ function BookingWizard({ room, onClose, onComplete, initialDates }) {
                     </button>
                   ))}
                 </div>
-                {dateNotice && <p className="mt-2 text-sm text-amber-700">{dateNotice}</p>}
               </div>
             </div>
           )}
@@ -241,47 +260,36 @@ function BookingWizard({ room, onClose, onComplete, initialDates }) {
                   Phone Number (Optional)
                 </label>
                 <input
-                  type="tel"
-                  value={bookingData.guestPhone}
-                  onChange={(e) => setBookingData({ ...bookingData, guestPhone: e.target.value })}
-                  placeholder="+1 (555) 123-4567"
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Special Requests (Optional)
-                </label>
-                <textarea
-                  value={bookingData.specialRequests}
-                  onChange={(e) => setBookingData({ ...bookingData, specialRequests: e.target.value })}
-                  rows={3}
-                  placeholder="Any special requirements?"
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none resize-none"
-                />
-              </div>
-            </div>
-          )}
-
           {/* Step 3: Payment */}
           {currentStep === 3 && (
             <div className="space-y-6 animate-fade-in">
               <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Payment Method</h3>
-                <p className="text-gray-600">Choose how you'd like to pay</p>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Payment</h3>
+                <p className="text-gray-600">Complete your booking with secure payment</p>
               </div>
 
-              <div className="space-y-3">
-                {[
-                  { id: 'card', label: 'Credit/Debit Card', icon: '💳' },
-                  { id: 'paypal', label: 'PayPal', icon: '🅿️' },
-                  { id: 'bank', label: 'Bank Transfer', icon: '🏦' }
-                ].map(method => (
-                  <button
-                    key={method.id}
-                    onClick={() => setBookingData({ ...bookingData, paymentMethod: method.id })}
-                    className={`w-full p-4 rounded-xl border-2 transition-all text-left flex items-center gap-3 ${
+              <PaymentForm
+                bookingData={{
+                  ...bookingData,
+                  roomId: room.id,
+                  roomName: room.name,
+                  nights,
+                  subtotal,
+                  serviceFee,
+                  totalPrice: total
+                }}
+                onSuccess={(booking) => {
+                  onComplete(booking)
+                }}
+                onCancel={() => {
+                  setCurrentStep(2) // Go back to guest details
+                }}
+                onError={(error) => {
+                  alert(error) // Show error message
+                }}
+              />
+            </div>
+          )}        className={`w-full p-4 rounded-xl border-2 transition-all text-left flex items-center gap-3 ${
                       bookingData.paymentMethod === method.id
                         ? 'border-blue-600 bg-blue-50'
                         : 'border-gray-300 hover:border-gray-400'
@@ -326,11 +334,11 @@ function BookingWizard({ room, onClose, onComplete, initialDates }) {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Check-in:</span>
-                      <span className="font-medium text-gray-900">{formatDateLabel(bookingData.checkIn)}</span>
+                      <span className="font-medium text-gray-900">{new Date(bookingData.checkIn).toLocaleDateString()}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Check-out:</span>
-                      <span className="font-medium text-gray-900">{formatDateLabel(bookingData.checkOut)}</span>
+                      <span className="font-medium text-gray-900">{new Date(bookingData.checkOut).toLocaleDateString()}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Guests:</span>
@@ -372,24 +380,30 @@ function BookingWizard({ room, onClose, onComplete, initialDates }) {
 
         {/* Footer */}
         <div className="p-6 border-t bg-gray-50 flex items-center justify-between">
-          <button
-            onClick={currentStep === 1 ? onClose : handleBack}
-            className="px-6 py-3 text-gray-700 font-semibold hover:text-gray-900 transition-colors"
-          >
-            {currentStep === 1 ? 'Cancel' : 'Back'}
-          </button>
+          {currentStep < 3 ? (
+            <>
+              <button
+                onClick={currentStep === 1 ? onClose : handleBack}
+                className="px-6 py-3 text-gray-700 font-semibold hover:text-gray-900 transition-colors"
+              >
+                {currentStep === 1 ? 'Cancel' : 'Back'}
+              </button>
 
-          <button
-            onClick={currentStep === 4 ? handleSubmit : handleNext}
-            disabled={!isStepValid()}
-            className={`px-8 py-3 rounded-xl font-semibold transition-all ${
-              isStepValid()
-                ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            {currentStep === 4 ? 'Confirm Booking' : 'Continue'}
-          </button>
+              <button
+                onClick={handleNext}
+                disabled={!isStepValid()}
+                className={`px-8 py-3 rounded-xl font-semibold transition-all ${
+                  isStepValid()
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                {currentStep === 2 ? 'Continue to Payment' : 'Continue'}
+              </button>
+            </>
+          ) : (
+            <p className="text-gray-600 text-sm">Complete payment to finish your booking</p>
+          )}
         </div>
 
       </div>
