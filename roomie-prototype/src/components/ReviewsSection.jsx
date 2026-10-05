@@ -7,6 +7,8 @@ function ReviewsSection({ roomId, onShowToast, onNavigateToLogin }) {
   const [reviews, setReviews] = useState([])
   const [loading, setLoading] = useState(true)
   const [showReviewForm, setShowReviewForm] = useState(false)
+  const [canReview, setCanReview] = useState(false)
+  const [reviewEligibility, setReviewEligibility] = useState(null)
   const [filterRating, setFilterRating] = useState('all')
   const [sortBy, setSortBy] = useState('recent')
   const [reviewForm, setReviewForm] = useState({
@@ -18,7 +20,10 @@ function ReviewsSection({ roomId, onShowToast, onNavigateToLogin }) {
   // Fetch reviews from backend
   useEffect(() => {
     fetchReviews()
-  }, [roomId])
+    if (user) {
+      checkReviewEligibility()
+    }
+  }, [roomId, user])
 
   const fetchReviews = async () => {
     try {
@@ -35,6 +40,25 @@ function ReviewsSection({ roomId, onShowToast, onNavigateToLogin }) {
     }
   }
 
+  const checkReviewEligibility = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/rooms/${roomId}/can-review`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      const data = await response.json()
+      if (data.success) {
+        setCanReview(data.canReview)
+        setReviewEligibility(data.reason)
+      }
+    } catch (error) {
+      console.error('Error checking review eligibility:', error)
+    }
+  }
+
   const handleWriteReview = () => {
     if (!user) {
       // Navigate to login if provided
@@ -45,6 +69,12 @@ function ReviewsSection({ roomId, onShowToast, onNavigateToLogin }) {
       }
       return
     }
+
+    if (!canReview) {
+      onShowToast?.(reviewEligibility || 'You cannot review this room', 'error')
+      return
+    }
+
     setShowReviewForm(true)
   }
 
@@ -74,6 +104,7 @@ function ReviewsSection({ roomId, onShowToast, onNavigateToLogin }) {
         setShowReviewForm(false)
         setReviewForm({ rating: 5, title: '', comment: '' })
         fetchReviews() // Refresh reviews
+        checkReviewEligibility() // Refresh eligibility
       } else {
         onShowToast?.(data.message || 'Failed to submit review', 'error')
       }
@@ -151,15 +182,45 @@ function ReviewsSection({ roomId, onShowToast, onNavigateToLogin }) {
             {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'} from verified guests
           </p>
         </div>
-        <button
-          onClick={handleWriteReview}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Write a Review
-        </button>
+        {user ? (
+          canReview ? (
+            <button
+              onClick={handleWriteReview}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Write a Review
+            </button>
+          ) : (
+            <div className="text-right">
+              <button
+                disabled
+                className="px-4 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed flex items-center gap-2"
+                title={reviewEligibility}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
+                </svg>
+                Can't Review
+              </button>
+              <p className="text-xs text-gray-500 mt-1 max-w-48">
+                {reviewEligibility}
+              </p>
+            </div>
+          )
+        ) : (
+          <button
+            onClick={handleWriteReview}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Write a Review
+          </button>
+        )}
       </div>
 
       {/* Review Form */}
@@ -433,12 +494,35 @@ function ReviewsSection({ roomId, onShowToast, onNavigateToLogin }) {
           <p className="text-gray-600 mb-4">
             Be the first to review this room after your stay!
           </p>
-          <button
-            onClick={handleWriteReview}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Write First Review
-          </button>
+          {user ? (
+            canReview ? (
+              <button
+                onClick={handleWriteReview}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Write First Review
+              </button>
+            ) : (
+              <div>
+                <button
+                  disabled
+                  className="px-6 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed"
+                >
+                  Can't Review Yet
+                </button>
+                <p className="text-sm text-gray-500 mt-2">
+                  {reviewEligibility}
+                </p>
+              </div>
+            )
+          ) : (
+            <button
+              onClick={handleWriteReview}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Sign In to Review
+            </button>
+          )}
         </div>
 
       )}

@@ -15,6 +15,11 @@ const reviewSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  bookingId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Booking',
+    required: true
+  },
   rating: {
     type: Number,
     required: true,
@@ -41,5 +46,8 @@ const reviewSchema = new mongoose.Schema({
 
 // Prevent duplicate reviews from same user for same room
 reviewSchema.index({ roomId: 1, userId: 1 }, { unique: true });
+
+// Ensure review is tied to a completed booking
+reviewSchema.index({ bookingId: 1 });
 
 module.exports = mongoose.model('Review', reviewSchema);

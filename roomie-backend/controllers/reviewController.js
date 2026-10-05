@@ -66,6 +66,21 @@ exports.createReview = async (req, res) => {
       });
     }
 
+    // Check if user has completed a booking for this room
+    const Booking = require('../models/Booking');
+    const completedBooking = await Booking.findOne({
+      roomId,
+      renterId: req.user._id,
+      status: 'completed'
+    });
+
+    if (!completedBooking) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only review rooms you have stayed in. Complete a booking first.'
+      });
+    }
+
     // Check if user already reviewed this room
     const existingReview = await Review.findOne({
       roomId,
@@ -86,7 +101,8 @@ exports.createReview = async (req, res) => {
       userName: req.user.name,
       rating,
       title,
-      comment
+      comment,
+      bookingId: completedBooking._id // Reference to the completed booking
     });
 
     res.status(201).json({
@@ -186,6 +202,58 @@ exports.deleteReview = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error deleting review',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Check if user can review a room
+// @route   GET /api/rooms/:roomId/can-review
+// @access  Private
+exports.canUserReview = async (req, res) => {
+  try {
+    const roomId = req.params.roomId;
+
+    // Check if user has completed a booking for this room
+    const Booking = require('../models/Booking');
+    const completedBooking = await Booking.findOne({
+      roomId,
+      renterId: req.user._id,
+      status: 'completed'
+    });
+
+    if (!completedBooking) {
+      return res.status(200).json({
+        success: true,
+        canReview: false,
+        reason: 'You need to complete a stay at this room before you can review it.'
+      });
+    }
+
+    // Check if user already reviewed this room
+    const existingReview = await Review.findOne({
+      roomId,
+      userId: req.user._id
+    });
+
+    if (existingReview) {
+      return res.status(200).json({
+        success: true,
+        canReview: false,
+        reason: 'You have already reviewed this room.'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      canReview: true,
+      reason: 'You can write a review for this room.'
+    });
+  } catch (error) {
+    console.error('Can review check error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error checking review eligibility',
       error: error.message
     });
   }
