@@ -75,6 +75,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/rooms', require('./routes/rooms'));
 app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api', require('./routes/reviews'));
+app.use('/api/admin', require('./routes/admin'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {

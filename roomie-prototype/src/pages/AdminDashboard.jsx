@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
-import { getAllBookings, initializeBookings, subscribeToBookings } from '../data/bookings'
-import { sumRevenue, isEarningStatus, formatDateLabel, formatMoney } from '../utils/pricing'
-import { getAllReviews } from '../data/reviews'
+import api from '../services/api'
+import { formatDateLabel, formatMoney } from '../utils/pricing'
 
 function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -17,6 +16,8 @@ function AdminDashboard() {
   })
   const [users, setUsers] = useState([])
   const [bookings, setBookings] = useState([])
+  const [reviews, setReviews] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview') // overview, users, bookings, analytics
   const [userSearchQuery, setUserSearchQuery] = useState('')
   const [userRoleFilter, setUserRoleFilter] = useState('all') // all, admin, host, customer
@@ -24,48 +25,96 @@ function AdminDashboard() {
   const [showExportMenu, setShowExportMenu] = useState(false)
 
   useEffect(() => {
-    initializeBookings()
     loadDashboardData()
-    // Live: totals refresh as soon as a booking is created, approved, declined or cancelled
-    return subscribeToBookings(loadDashboardData)
+    // Refresh every 30 seconds for live updates
+    const interval = setInterval(loadDashboardData, 30000)
+    return () => clearInterval(interval)
   }, [])
 
-  const loadDashboardData = () => {
-    // Load users
-    const usersJson = localStorage.getItem('registeredUsers')
-    const allUsers = usersJson ? JSON.parse(usersJson) : []
-    
-    // Load bookings
-    const allBookings = getAllBookings()
-    
-    // Load reviews
-    const allReviews = getAllReviews()
-    
-    // Calculate stats
-    const hosts = allUsers.filter(u => u.role === 'host')
-    const customers = allUsers.filter(u => u.role === 'customer')
-    const pending = allBookings.filter(b => b.status === 'pending')
-    const approved = allBookings.filter(b => isEarningStatus(b.status))
-    const totalRevenue = sumRevenue(allBookings)
-    
-    const avgRating = allReviews.length > 0
-      ? (allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length).toFixed(1)
-      : 0
+  const loadDashboardData = async () => {
+    setIsLoading(true)
+    try {
+      // Fetch all data from backend
+      const [usersRes, bookingsRes, roomsRes] = await Promise.all([
+        fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/admin/users`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        }).catch(() => ({ ok: false })),
+        api.bookings.getAll(),
+        api.getAllRooms()
+      ])
 
-    setStats({
-      totalUsers: allUsers.length,
-      totalHosts: hosts.length,
-      totalCustomers: customers.length,
-      totalBookings: allBookings.length,
-      pendingBookings: pending.length,
-      approvedBookings: approved.length,
-      totalRevenue: totalRevenue,
-      totalReviews: allReviews.length,
-      averageRating: avgRating
-    })
+      // Parse users if we got them
+      let allUsers = []
+      if (usersRes.ok) {
+        const usersData = await usersRes.json()
+        allUsers = usersData.users || []
+      }
 
-    setUsers(allUsers)
-    setBookings(allBookings)
+      // Get bookings
+      const bookingsData = bookingsRes.bookings || bookingsRes || []
+      
+      // Transform bookings to match expected format
+      const transformedBookings = bookingsData.map(booking => ({
+        id: booking._id,
+        roomId: booking.roomId?._id || booking.roomId,
+        roomName: booking.roomId?.name || booking.roomName || 'Unknown Room',
+        renterName: booking.renterId?.name || booking.renterName || 'Guest',
+        renterEmail: booking.renterId?.email || booking.renterEmail || '',
+        checkIn: booking.checkIn?.split('T')[0] || booking.checkIn,
+        checkOut: booking.checkOut?.split('T')[0] || booking.checkOut,
+        guests: booking.guests || 1,
+        totalPrice: booking.totalPrice || 0,
+        status: booking.status,
+        createdAt: booking.createdAt
+      }))
+
+      // Fetch all reviews from all rooms
+      let allReviews = []
+      for (const room of roomsRes) {
+        try {
+          const roomReviews = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/reviews/room/${room._id}`)
+          const reviewData = await roomReviews.json()
+          if (reviewData.success && reviewData.reviews) {
+            allReviews = [...allReviews, ...reviewData.reviews]
+          }
+        } catch (error) {
+          console.error(`Failed to fetch reviews for room ${room._id}:`, error)
+        }
+      }
+
+      // Calculate stats
+      const hosts = allUsers.filter(u => u.role === 'host')
+      const customers = allUsers.filter(u => u.role === 'customer')
+      const pending = transformedBookings.filter(b => b.status === 'pending')
+      const approved = transformedBookings.filter(b => b.status === 'approved' || b.status === 'completed')
+      const totalRevenue = transformedBookings
+        .filter(b => b.status === 'approved' || b.status === 'completed')
+        .reduce((sum, b) => sum + b.totalPrice, 0)
+      
+      const avgRating = allReviews.length > 0
+        ? (allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length).toFixed(1)
+        : 0
+
+      setStats({
+        totalUsers: allUsers.length,
+        totalHosts: hosts.length,
+        totalCustomers: customers.length,
+        totalBookings: transformedBookings.length,
+        pendingBookings: pending.length,
+        approvedBookings: approved.length,
+        totalRevenue: totalRevenue,
+        totalReviews: allReviews.length,
+        averageRating: avgRating
+      })
+
+      setUsers(allUsers)
+      setBookings(transformedBookings)
+      setReviews(allReviews)
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const getStatusColor = (status) => {
@@ -207,6 +256,17 @@ function AdminDashboard() {
   }
 
   const filteredUsers = getFilteredAndSortedUsers()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8 pt-24 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading dashboard data...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 pt-24">
