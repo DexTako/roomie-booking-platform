@@ -1,23 +1,100 @@
-import { useState } from 'react'
-import { 
-  getReviewsByRoom, 
-  calculateAverageRating, 
-  getRatingBreakdown,
-  getCategoryAverages 
-} from '../data/reviews'
+import { useState, useEffect } from 'react'
 import StarRating from './StarRating'
 import { useAuth } from '../context/AuthContext'
 
-function ReviewsSection({ roomId, onShowToast }) {
+function ReviewsSection({ roomId, onShowToast, onNavigateToLogin }) {
   const { user } = useAuth()
+  const [reviews, setReviews] = useState([])
+  const [loading, setLoading] = useState(true)
   const [showReviewForm, setShowReviewForm] = useState(false)
   const [filterRating, setFilterRating] = useState('all')
   const [sortBy, setSortBy] = useState('recent')
+  const [reviewForm, setReviewForm] = useState({
+    rating: 5,
+    title: '',
+    comment: ''
+  })
 
-  const reviews = getReviewsByRoom(roomId)
-  const averageRating = calculateAverageRating(roomId)
-  const ratingBreakdown = getRatingBreakdown(roomId)
-  const categoryAverages = getCategoryAverages(roomId)
+  // Fetch reviews from backend
+  useEffect(() => {
+    fetchReviews()
+  }, [roomId])
+
+  const fetchReviews = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/rooms/${roomId}/reviews`)
+      const data = await response.json()
+      
+      if (data.success) {
+        setReviews(data.reviews || [])
+      }
+    } catch (error) {
+      console.error('Error fetching reviews:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleWriteReview = () => {
+    if (!user) {
+      // Navigate to login if provided
+      if (onNavigateToLogin) {
+        onNavigateToLogin()
+      } else {
+        onShowToast?.('Please sign in to write a review', 'info')
+      }
+      return
+    }
+    setShowReviewForm(true)
+  }
+
+  const handleSubmitReview = async (e) => {
+    e.preventDefault()
+    
+    if (!reviewForm.title || !reviewForm.comment) {
+      onShowToast?.('Please fill in all fields', 'error')
+      return
+    }
+
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/rooms/${roomId}/reviews`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(reviewForm)
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        onShowToast?.('Review submitted successfully!', 'success')
+        setShowReviewForm(false)
+        setReviewForm({ rating: 5, title: '', comment: '' })
+        fetchReviews() // Refresh reviews
+      } else {
+        onShowToast?.(data.message || 'Failed to submit review', 'error')
+      }
+    } catch (error) {
+      console.error('Error submitting review:', error)
+      onShowToast?.('Failed to submit review. Please try again.', 'error')
+    }
+  }
+
+  // Calculate statistics
+  const averageRating = reviews.length > 0
+    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+    : '0.0'
+
+  const ratingBreakdown = {
+    5: reviews.filter(r => r.rating === 5).length,
+    4: reviews.filter(r => r.rating === 4).length,
+    3: reviews.filter(r => r.rating === 3).length,
+    2: reviews.filter(r => r.rating === 2).length,
+    1: reviews.filter(r => r.rating === 1).length
+  }
 
   // Filter reviews
   let filteredReviews = reviews
@@ -50,19 +127,115 @@ function ReviewsSection({ roomId, onShowToast }) {
       .toUpperCase()
   }
 
+  if (loading) {
+    return (
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="text-gray-600 mt-4">Loading reviews...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
 
       {/* Header */}
-      <div className="mb-8">
-        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
-          Guest Reviews
-        </h2>
-        <p className="text-gray-600">
-          {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'} from verified guests
-        </p>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
+            Guest Reviews ({reviews.length})
+          </h2>
+          <p className="text-gray-600">
+            {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'} from verified guests
+          </p>
+        </div>
+        <button
+          onClick={handleWriteReview}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Write a Review
+        </button>
       </div>
 
+      {/* Review Form */}
+      {showReviewForm && (
+        <div className="mb-8 p-6 bg-gray-50 rounded-lg border border-gray-200">
+          <h3 className="text-lg font-semibold mb-4">Write Your Review</h3>
+          <form onSubmit={handleSubmitReview} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Rating</label>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setReviewForm({ ...reviewForm, rating: star })}
+                    className="focus:outline-none"
+                  >
+                    <svg
+                      className={`w-8 h-8 ${
+                        star <= reviewForm.rating
+                          ? 'text-yellow-400 fill-current'
+                          : 'text-gray-300'
+                      }`}
+                      viewBox="0 0 20 20"
+                    >
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+              <input
+                type="text"
+                value={reviewForm.title}
+                onChange={(e) => setReviewForm({ ...reviewForm, title: e.target.value })}
+                placeholder="Sum up your experience"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                maxLength={100}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Review</label>
+              <textarea
+                value={reviewForm.comment}
+                onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
+                placeholder="Share your experience with this room..."
+                rows={4}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                maxLength={500}
+                required
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Submit Review
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowReviewForm(false)}
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {reviews.length > 0 ? (
         <>
@@ -135,11 +308,7 @@ function ReviewsSection({ roomId, onShowToast }) {
                         {[1, 2, 3, 4, 5].map(star => (
                           <svg
                             key={star}
-                            className={`w-4 h-4 ${
-                              star <= parseFloat(categoryAverages[category.key])
-                                ? 'text-yellow-400 fill-current'
-                                : 'text-gray-300'
-                            }`}
+                            className="w-4 h-4 text-yellow-400 fill-current"
                             viewBox="0 0 20 20"
                           >
                             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
@@ -147,7 +316,7 @@ function ReviewsSection({ roomId, onShowToast }) {
                         ))}
                       </div>
                       <span className="text-sm font-semibold text-gray-900 w-8">
-                        {categoryAverages[category.key]}
+                        {averageRating}
                       </span>
                     </div>
                   </div>
@@ -156,7 +325,6 @@ function ReviewsSection({ roomId, onShowToast }) {
             </div>
 
           </div>
-
 
           {/* Filters & Sort */}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -198,13 +366,12 @@ function ReviewsSection({ roomId, onShowToast }) {
 
           </div>
 
-
           {/* Reviews List */}
           <div className="space-y-6">
             {filteredReviews.length > 0 ? (
               filteredReviews.map(review => (
                 <div 
-                  key={review.id}
+                  key={review._id}
                   className="pb-6 border-b last:border-0"
                 >
                   
@@ -213,13 +380,13 @@ function ReviewsSection({ roomId, onShowToast }) {
                     
                     {/* Avatar */}
                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold flex-shrink-0">
-                      {getInitials(review.reviewerName)}
+                      {getInitials(review.userName)}
                     </div>
 
                     {/* Name & Date */}
                     <div className="flex-1 min-w-0">
                       <h4 className="font-semibold text-gray-900">
-                        {review.reviewerName}
+                        {review.userName}
                       </h4>
                       <p className="text-sm text-gray-500">
                         {formatDate(review.createdAt)}
@@ -233,20 +400,13 @@ function ReviewsSection({ roomId, onShowToast }) {
 
                   </div>
 
+                  {/* Title */}
+                  <h5 className="font-semibold text-gray-900 mb-2">{review.title}</h5>
+
                   {/* Comment */}
-                  <p className="text-gray-700 leading-relaxed mb-3">
+                  <p className="text-gray-700 leading-relaxed">
                     {review.comment}
                   </p>
-
-                  {/* Helpful Buttons */}
-                  <div className="flex items-center gap-4 text-sm">
-                    <button className="flex items-center gap-1 text-gray-600 hover:text-blue-600 transition-colors">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
-                      </svg>
-                      Helpful ({review.helpful})
-                    </button>
-                  </div>
 
                 </div>
               ))
@@ -270,9 +430,15 @@ function ReviewsSection({ roomId, onShowToast }) {
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
             No reviews yet
           </h3>
-          <p className="text-gray-600">
+          <p className="text-gray-600 mb-4">
             Be the first to review this room after your stay!
           </p>
+          <button
+            onClick={handleWriteReview}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Write First Review
+          </button>
         </div>
 
       )}

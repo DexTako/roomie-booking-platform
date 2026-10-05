@@ -442,7 +442,8 @@ function RoomDetailPage({ room, onBack, onNavigateToLogin, onNavigateToRegister 
           {/* Reviews Section */}
           <ReviewsSection 
             roomId={room.id}
-            onShowToast={(message, type) => console.log(message)}
+            onShowToast={showNotification}
+            onNavigateToLogin={onNavigateToLogin}
           />
         </div>
       </main>
