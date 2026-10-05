@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { getOccupiedNights, subscribeToBookings } from '../data/bookings'
+import api from '../services/api'
 import {
   toISODate,
   parseISODate,
@@ -15,7 +15,7 @@ const monthTitle = (year, month) =>
   new Date(year, month, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
 // Interactive, responsive availability calendar for one room.
-//  - Shows booked and pending nights live (updates when bookings change).
+//  - Shows booked and pending nights live (fetches from backend API).
 //  - Lets the customer pick check-in and check-out; ranges that would cross a
 //    booked night cannot be selected.
 //  - readOnly mode is used by the host to just view occupancy.
@@ -30,15 +30,44 @@ function AvailabilityCalendar({
   const todayDate = parseISODate(today)
 
   const [view, setView] = useState({ year: todayDate.getFullYear(), month: todayDate.getMonth() })
-  const [occupied, setOccupied] = useState(() => getOccupiedNights(roomId))
+  const [occupied, setOccupied] = useState({})
   const [hoverDate, setHoverDate] = useState('')
   const [notice, setNotice] = useState('')
 
-  // Live availability: reload when this room changes or any booking changes
+  // Fetch occupied dates from backend API
   useEffect(() => {
-    const reload = () => setOccupied(getOccupiedNights(roomId))
-    reload()
-    return subscribeToBookings(reload)
+    const fetchOccupiedDates = async () => {
+      if (!roomId) return
+      
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/rooms/${roomId}/occupied-dates`)
+        const data = await response.json()
+        
+        if (data.success && data.occupiedRanges) {
+          // Convert ranges to night-by-night occupied map
+          const occupiedMap = {}
+          data.occupiedRanges.forEach(range => {
+            const startISO = range.checkIn.split('T')[0]
+            const endISO = range.checkOut.split('T')[0]
+            const nights = countNights(startISO, endISO)
+            
+            for (let i = 0; i < nights; i++) {
+              const night = addDaysISO(startISO, i)
+              occupiedMap[night] = range.status
+            }
+          })
+          
+          setOccupied(occupiedMap)
+        }
+      } catch (error) {
+        console.error('Failed to fetch occupied dates:', error)
+      }
+    }
+
+    fetchOccupiedDates()
+    // Poll every 30 seconds for live updates
+    const interval = setInterval(fetchOccupiedDates, 30000)
+    return () => clearInterval(interval)
   }, [roomId])
 
   // If the selected dates get taken (e.g. by someone else) clear the selection

@@ -64,13 +64,14 @@ function HostDashboard() {
       // Transform backend data to match frontend format
       const transformedBookings = bookingsData.map(booking => ({
         id: booking._id,
-        roomId: booking.room?._id || booking.room,
-        roomName: booking.room?.name || 'Unknown Room',
-        renterName: booking.user?.name || 'Guest',
-        renterEmail: booking.user?.email || '',
-        checkIn: booking.checkInDate?.split('T')[0] || booking.checkInDate,
-        checkOut: booking.checkOutDate?.split('T')[0] || booking.checkOutDate,
-        guests: booking.numberOfGuests || 1,
+        roomId: booking.roomId?._id || booking.roomId,
+        roomName: booking.roomId?.name || booking.roomName || 'Unknown Room',
+        renterName: booking.renterId?.name || booking.renterName || 'Guest',
+        renterEmail: booking.renterId?.email || booking.renterEmail || '',
+        renterPhone: booking.renterId?.phone || booking.renterPhone || '',
+        checkIn: booking.checkIn?.split('T')[0] || booking.checkIn,
+        checkOut: booking.checkOut?.split('T')[0] || booking.checkOut,
+        guests: booking.guests || 1,
         totalPrice: booking.totalPrice || 0,
         status: booking.status,
         createdAt: booking.createdAt
