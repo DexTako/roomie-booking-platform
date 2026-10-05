@@ -110,14 +110,17 @@ function RoomDetailPage({ room, onBack, onNavigateToLogin, onNavigateToRegister 
     }
 
     try {
-      // Create booking object
+      // Create booking object with correct field names
       const newBooking = {
         roomId: room.id || room._id,
-        checkInDate: bookingFormData.checkIn,
-        checkOutDate: bookingFormData.checkOut,
-        numberOfGuests: bookingFormData.guests,
-        totalPrice: bookingFormData.total,
-        specialRequests: bookingFormData.specialRequests || ''
+        checkIn: bookingFormData.checkIn,
+        checkOut: bookingFormData.checkOut,
+        guests: bookingFormData.guests,
+        guestName: bookingFormData.guestName || user.name,
+        guestEmail: bookingFormData.guestEmail || user.email,
+        guestPhone: bookingFormData.guestPhone || user.phone || '',
+        specialRequests: bookingFormData.specialRequests || '',
+        paymentMethod: bookingFormData.paymentMethod || 'card'
       }
 
       // Send booking request to backend
