@@ -23,19 +23,22 @@ const corsOptions = {
       ? [
           // Main Vercel production URL
           'https://roomie-booking-platform-ub23.vercel.app',
-          // Allow any Vercel preview URL pattern
-          /^https:\/\/roomie-booking-platform-ub23-.*\.vercel\.app$/,
+          // Allow any Vercel preview URL pattern (with or without trailing slash)
+          /^https:\/\/roomie-booking-platform-ub23-.*\.vercel\.app\/?$/,
           // Also support the specific frontend URL if set
-          ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(url => url.trim()) : [])
+          ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(url => url.trim().replace(/\/$/, '')) : [])
         ]
       : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+    
+    // Normalize origin (remove trailing slash)
+    const normalizedOrigin = origin.replace(/\/$/, '');
     
     // Check if origin is allowed
     const isAllowed = allowedOrigins.some(allowedOrigin => {
       if (typeof allowedOrigin === 'string') {
-        return allowedOrigin === origin;
+        return allowedOrigin === normalizedOrigin;
       } else if (allowedOrigin instanceof RegExp) {
-        return allowedOrigin.test(origin);
+        return allowedOrigin.test(origin) || allowedOrigin.test(normalizedOrigin);
       }
       return false;
     });
