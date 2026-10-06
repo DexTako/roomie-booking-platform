@@ -37,7 +37,7 @@ function HostDashboard() {
         const data = await api.getAllRooms()
         setRooms(data)
         if (data.length > 0) {
-          setCalendarRoomId(data[0].id || data[0]._id)
+          setCalendarRoomId(data[0]._id || data[0].id)
         }
       } catch (error) {
         console.error('Failed to fetch rooms:', error)
@@ -437,12 +437,14 @@ function HostDashboard() {
             <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
               <h3 className="text-xl font-bold text-gray-900">Room Occupancy</h3>
               <select
-                value={calendarRoomId}
-                onChange={(e) => setCalendarRoomId(Number(e.target.value))}
+                value={calendarRoomId || ''}
+                onChange={(e) => setCalendarRoomId(e.target.value)}
                 className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500"
               >
                 {rooms.map(room => (
-                  <option key={room.id} value={room.id}>{room.name}</option>
+                  <option key={room._id || room.id} value={room._id || room.id}>
+                    {room.name}
+                  </option>
                 ))}
               </select>
             </div>

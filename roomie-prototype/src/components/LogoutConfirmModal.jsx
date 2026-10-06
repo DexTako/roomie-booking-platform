@@ -102,7 +102,7 @@ function LogoutConfirmModal({ onConfirm, onCancel, userName }) {
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         @keyframes fadeIn {
           from {
             opacity: 0;
