@@ -4,7 +4,7 @@ import api from '../services/api'
 import RoomViewer from '../components/RoomViewer'
 import RoomGallery from '../components/RoomGallery'
 import BookingWizard from '../components/BookingWizard'
-import BookingReceipt from '../components/BookingReceipt'
+import ReceiptModal from '../components/ReceiptModal'
 import AvailabilityCalendar from '../components/AvailabilityCalendar'
 import ReviewsSection from '../components/ReviewsSection'
 import AddReview from '../components/AddReview'
@@ -29,7 +29,7 @@ function RoomDetailPage({ room, onBack, onNavigateToLogin, onNavigateToRegister 
   const [bookingData, setBookingData] = useState(null)
   const [show3DView, setShow3DView] = useState(false)
   const [showBookingWizard, setShowBookingWizard] = useState(false)
-  const [showReceipt, setShowReceipt] = useState(false)
+  const [receiptBooking, setReceiptBooking] = useState(null)
   const [selectedDates, setSelectedDates] = useState({ checkIn: '', checkOut: '' })
   const [reviews, setReviews] = useState([])
   const [averageRating, setAverageRating] = useState(0)
@@ -122,7 +122,8 @@ function RoomDetailPage({ room, onBack, onNavigateToLogin, onNavigateToRegister 
         guestEmail: bookingFormData.guestEmail || user.email,
         guestPhone: bookingFormData.guestPhone || user.phone || '',
         specialRequests: bookingFormData.specialRequests || '',
-        paymentMethod: bookingFormData.paymentMethod || 'card'
+        paymentMethod: bookingFormData.paymentMethod || 'card',
+        paymentDetails: bookingFormData.paymentDetails || ''
       }
 
       // Debug logging
@@ -134,13 +135,15 @@ function RoomDetailPage({ room, onBack, onNavigateToLogin, onNavigateToRegister 
       setBookingData(result)
       setIsBooked(true)
       setShowBookingWizard(false)
-      setShowReceipt(true) // Show receipt modal instead of notification
       setSelectedDates({ checkIn: '', checkOut: '' })
+      
+      // Show the receipt (download / print as PDF) instead of a plain notice
+      setReceiptBooking(result)
     } catch (error) {
       console.error('Booking error:', error)
       showNotification(
         'Booking Failed',
-        error.response?.data?.message || 'Failed to create booking. Please try again.',
+        error.message || 'Failed to create booking. Please try again.',
         'error'
       )
     }
@@ -458,12 +461,12 @@ function RoomDetailPage({ room, onBack, onNavigateToLogin, onNavigateToRegister 
         />
       )}
 
-      {/* Booking Receipt Modal */}
-      {showReceipt && bookingData && (
-        <BookingReceipt
-          booking={bookingData}
-          room={room}
-          onClose={() => setShowReceipt(false)}
+      {/* Receipt after payment */}
+      {receiptBooking && (
+        <ReceiptModal
+          booking={receiptBooking}
+          justBooked
+          onClose={() => setReceiptBooking(null)}
         />
       )}
 

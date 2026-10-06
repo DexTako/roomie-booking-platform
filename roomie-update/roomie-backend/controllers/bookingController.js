@@ -166,8 +166,16 @@ exports.createBooking = async (req, res) => {
     const diffTime = Math.abs(checkOutDate - checkInDate);
     const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     const subtotal = room.pricePerNight * nights;
-    const serviceFee = subtotal * 0.15;
-    const totalPrice = subtotal + serviceFee;
+    const serviceFee = Math.round(subtotal * 0.10 * 100) / 100; // 10%, same as the frontend
+    const totalPrice = Math.round((subtotal + serviceFee) * 100) / 100;
+
+    // Payment (demo gateway): card/GCash/PayPal are treated as paid right away,
+    // cash is paid on arrival. Swap this block for a real gateway later.
+    const method = ['card', 'paypal', 'gcash', 'cash'].includes(paymentMethod) ? paymentMethod : 'card';
+    const isPaidNow = method !== 'cash';
+    const transactionId = isPaidNow
+      ? `TXN-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
+      : '';
 
     // Create booking
     const booking = await Booking.create({
@@ -186,9 +194,11 @@ exports.createBooking = async (req, res) => {
       subtotal,
       serviceFee,
       totalPrice,
-      paymentMethod: paymentMethod || 'card',
-      paymentDetails: paymentDetails || '',
-      paymentStatus: 'completed',
+      paymentMethod: method,
+      paymentDetails: String(paymentDetails || '').slice(0, 60),
+      paymentStatus: isPaidNow ? 'completed' : 'pending',
+      paidAt: isPaidNow ? new Date() : undefined,
+      transactionId,
       status: 'pending'
     });
 

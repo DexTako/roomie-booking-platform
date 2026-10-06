@@ -93,17 +93,21 @@ const bookingSchema = new mongoose.Schema({
   // Payment
   paymentMethod: {
     type: String,
-    enum: ['card', 'gcash', 'paypal', 'cash', 'bank'],
+    enum: ['card', 'paypal', 'gcash', 'cash', 'bank'],
     default: 'card'
-  },
-  paymentDetails: {
-    type: String,
-    default: ''
   },
   paymentStatus: {
     type: String,
     enum: ['pending', 'completed', 'failed', 'refunded'],
-    default: 'completed'
+    default: 'pending'
+  },
+  paymentDetails: {
+    type: String,
+    default: '',
+    maxlength: 60
+  },
+  paidAt: {
+    type: Date
   },
   paymentIntentId: {
     type: String,
