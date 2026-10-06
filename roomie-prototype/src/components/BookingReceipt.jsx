@@ -2,6 +2,7 @@ import { useRef } from 'react'
 
 function BookingReceipt({ booking, room, onClose }) {
   const receiptRef = useRef()
+  const receiptId = `receipt-${booking._id || booking.id || Date.now()}`
 
   const handlePrint = () => {
     window.print()
@@ -36,23 +37,72 @@ function BookingReceipt({ booking, room, onClose }) {
       {/* Print styles */}
       <style>{`
         @media print {
-          body * {
-            visibility: hidden;
-          }
-          #receipt-content, #receipt-content * {
-            visibility: visible;
-          }
-          #receipt-content {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-          }
-          .no-print {
+          /* NUCLEAR OPTION: Hide absolutely everything */
+          body,
+          body > *,
+          body > * > *,
+          #root,
+          #root > * {
             display: none !important;
+            visibility: hidden !important;
+            overflow: hidden !important;
           }
-          .print-page {
-            page-break-after: always;
+          
+          /* Only show this specific receipt and its parents */
+          #${receiptId} {
+            display: block !important;
+            visibility: visible !important;
+            position: fixed !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            background: white !important;
+            padding: 20px !important;
+            z-index: 999999 !important;
+            overflow: visible !important;
+          }
+          
+          #${receiptId},
+          #${receiptId} * {
+            display: block !important;
+            visibility: visible !important;
+          }
+          
+          /* Make sure flex/grid children display correctly */
+          #${receiptId} .flex,
+          #${receiptId} .grid {
+            display: flex !important;
+          }
+          
+          #${receiptId} .grid {
+            display: grid !important;
+          }
+          
+          /* Hide elements with no-print class */
+          .no-print,
+          .no-print * {
+            display: none !important;
+            visibility: hidden !important;
+          }
+          
+          /* Remove all decorative effects */
+          * {
+            box-shadow: none !important;
+            text-shadow: none !important;
+            animation: none !important;
+            transition: none !important;
+          }
+          
+          /* Page setup */
+          @page {
+            margin: 1cm;
+            size: A4 portrait;
+          }
+          
+          /* Remove page breaks inside important sections */
+          #${receiptId} > * {
+            page-break-inside: avoid;
           }
         }
       `}</style>
@@ -79,7 +129,7 @@ function BookingReceipt({ booking, room, onClose }) {
           </div>
 
           {/* Receipt Content - Printable */}
-          <div id="receipt-content" className="flex-1 overflow-y-auto p-8">
+          <div id={receiptId} className="flex-1 overflow-y-auto p-8">
             
             {/* Receipt Header */}
             <div className="text-center mb-8">
