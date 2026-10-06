@@ -7,8 +7,8 @@ function ReviewsSection({ roomId, onShowToast, onNavigateToLogin }) {
   const [reviews, setReviews] = useState([])
   const [loading, setLoading] = useState(true)
   const [showReviewForm, setShowReviewForm] = useState(false)
-  const [showNotEligibleModal, setShowNotEligibleModal] = useState(false)
   const [canReview, setCanReview] = useState(false)
+  const [checkingEligibility, setCheckingEligibility] = useState(true)
   const [reviewEligibility, setReviewEligibility] = useState(null)
   const [filterRating, setFilterRating] = useState('all')
   const [sortBy, setSortBy] = useState('recent')
@@ -42,8 +42,10 @@ function ReviewsSection({ roomId, onShowToast, onNavigateToLogin }) {
   }
 
   const checkReviewEligibility = async () => {
+    setCheckingEligibility(true)
     try {
       const token = localStorage.getItem('token')
+      console.log('🔍 Checking review eligibility for room:', roomId)
       const response = await fetch(`${import.meta.env.VITE_API_URL}/rooms/${roomId}/can-review`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -51,12 +53,19 @@ function ReviewsSection({ roomId, onShowToast, onNavigateToLogin }) {
       })
       
       const data = await response.json()
+      console.log('🔍 Review eligibility response:', data)
       if (data.success) {
         setCanReview(data.canReview)
         setReviewEligibility(data.reason)
+        console.log('✅ Can review:', data.canReview, '| Reason:', data.reason)
       }
     } catch (error) {
-      console.error('Error checking review eligibility:', error)
+      console.error('❌ Error checking review eligibility:', error)
+      // Default to not allowing reviews on error
+      setCanReview(false)
+      setReviewEligibility('Unable to verify review eligibility')
+    } finally {
+      setCheckingEligibility(false)
     }
   }
 
@@ -71,12 +80,11 @@ function ReviewsSection({ roomId, onShowToast, onNavigateToLogin }) {
       return
     }
 
-    if (!canReview) {
-      setShowNotEligibleModal(true)
-      return
+    // If user is logged in and can review, show the form
+    // The button is already disabled if they can't review
+    if (canReview) {
+      setShowReviewForm(true)
     }
-
-    setShowReviewForm(true)
   }
 
   const handleSubmitReview = async (e) => {
@@ -172,62 +180,6 @@ function ReviewsSection({ roomId, onShowToast, onNavigateToLogin }) {
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
-
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
-            Guest Reviews ({reviews.length})
-          </h2>
-          <p className="text-gray-600">
-            {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'} from verified guests
-          </p>
-        </div>
-        {user ? (
-          <button
-            onClick={handleWriteReview}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Write a Review
-          </button>
-        ) : (
-          <button
-            onClick={handleWriteReview}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Write a Review
-          </button>
-        )}
-                title={reviewEligibility}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
-                </svg>
-                Can't Review
-              </button>
-              <p className="text-xs text-gray-500 mt-1 max-w-48">
-                {reviewEligibility}
-              </p>
-            </div>
-          )
-        ) : (
-          <button
-            onClick={handleWriteReview}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Write a Review
-          </button>
-        )}
-      </div>
 
       {/* Review Form */}
       {showReviewForm && (
@@ -497,94 +449,11 @@ function ReviewsSection({ roomId, onShowToast, onNavigateToLogin }) {
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
             No reviews yet
           </h3>
-          <p className="text-gray-600 mb-4">
+          <p className="text-gray-600">
             Be the first to review this room after your stay!
           </p>
-          {user ? (
-            canReview ? (
-              <button
-                onClick={handleWriteReview}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Write First Review
-              </button>
-            ) : (
-              <div>
-                <button
-                  disabled
-                  className="px-6 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed"
-                >
-                  Can't Review Yet
-                </button>
-                <p className="text-sm text-gray-500 mt-2">
-                  {reviewEligibility}
-                </p>
-              </div>
-            )
-          ) : (
-            <button
-              onClick={handleWriteReview}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Sign In to Review
-            </button>
-          )}
         </div>
 
-      )}
-
-      {/* Not Eligible Modal */}
-      {showNotEligibleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-scale-in">
-            {/* Icon Header */}
-            <div className="flex justify-center pt-8 pb-4">
-              <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center">
-                <svg
-                  className="w-8 h-8 text-amber-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                  />
-                </svg>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="px-6 pb-6 text-center">
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                Can't Write Review Yet
-              </h3>
-
-              <p className="text-gray-600 mb-4">
-                {reviewEligibility || 'You need to have a completed stay at this room before you can write a review.'}
-              </p>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                <p className="text-sm text-blue-800">
-                  <strong>💡 Tip:</strong> Book this room and complete your stay to share your experience with other guests!
-                </p>
-              </div>
-            </div>
-
-            {/* Buttons */}
-            <div className="px-6 pb-6">
-              <button
-                type="button"
-                onClick={() => setShowNotEligibleModal(false)}
-                className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 rounded-xl text-sm font-semibold text-white transition-all active:scale-95 shadow-sm"
-              >
-                Got It
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
     </div>

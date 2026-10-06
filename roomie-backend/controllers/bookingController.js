@@ -1,6 +1,40 @@
 const Booking = require('../models/Booking');
 const Room = require('../models/Room');
 
+// Helper function to ensure booking has complete price data
+const ensureBookingPrices = async (booking) => {
+  // If all price fields exist, return as-is
+  if (booking.pricePerNight && booking.subtotal && booking.serviceFee && booking.totalPrice) {
+    return booking;
+  }
+
+  // Calculate missing fields
+  const checkInDate = new Date(booking.checkIn);
+  const checkOutDate = new Date(booking.checkOut);
+  const diffTime = Math.abs(checkOutDate - checkInDate);
+  const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  // Get room details if pricePerNight is missing
+  let pricePerNight = booking.pricePerNight;
+  if (!pricePerNight && booking.roomId) {
+    const room = await Room.findById(booking.roomId);
+    pricePerNight = room?.pricePerNight || 0;
+  }
+
+  const subtotal = pricePerNight * nights;
+  const serviceFee = subtotal * 0.15;
+  const totalPrice = subtotal + serviceFee;
+
+  // Update the booking object (not saved to DB, just for response)
+  booking.nights = nights;
+  booking.pricePerNight = pricePerNight;
+  booking.subtotal = subtotal;
+  booking.serviceFee = serviceFee;
+  booking.totalPrice = totalPrice;
+
+  return booking;
+};
+
 // @desc    Get all bookings (filtered by role)
 // @route   GET /api/bookings
 // @access  Private
@@ -30,10 +64,15 @@ exports.getAllBookings = async (req, res) => {
       .populate('renterId', 'name email phone')
       .sort({ createdAt: -1 });
 
+    // Ensure all bookings have complete price data
+    const bookingsWithPrices = await Promise.all(
+      bookings.map(booking => ensureBookingPrices(booking))
+    );
+
     res.status(200).json({
       success: true,
-      count: bookings.length,
-      bookings
+      count: bookingsWithPrices.length,
+      bookings: bookingsWithPrices
     });
   } catch (error) {
     console.error('Get bookings error:', error);
@@ -321,10 +360,15 @@ exports.getMyBookings = async (req, res) => {
       .populate('roomId', 'name location galleryImages pricePerNight')
       .sort({ createdAt: -1 });
 
+    // Ensure all bookings have complete price data
+    const bookingsWithPrices = await Promise.all(
+      bookings.map(booking => ensureBookingPrices(booking))
+    );
+
     res.status(200).json({
       success: true,
-      count: bookings.length,
-      bookings
+      count: bookingsWithPrices.length,
+      bookings: bookingsWithPrices
     });
   } catch (error) {
     console.error('Get my bookings error:', error);

@@ -60,7 +60,11 @@ function BookingWizard({ room, onClose, onComplete, initialDates }) {
         ...bookingData,
         roomId: room.id,
         nights,
+        pricePerNight: room.pricePerNight,
+        subtotal,
+        serviceFee,
         total,
+        totalPrice: total,
         paymentDetails: paymentDetailsLabel(method, payment)
       })
     } finally {

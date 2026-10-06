@@ -4,8 +4,156 @@ function BookingReceipt({ booking, room, onClose }) {
   const receiptRef = useRef()
   const receiptId = `receipt-${booking._id || booking.id || Date.now()}`
 
+  console.log('📄 BookingReceipt received booking:', booking)
+  console.log('📄 Booking price fields:', {
+    nights: booking.nights,
+    pricePerNight: booking.pricePerNight,
+    subtotal: booking.subtotal,
+    serviceFee: booking.serviceFee,
+    totalPrice: booking.totalPrice
+  })
+
+  // Calculate price details if missing (for old bookings)
+  const calculateMissingPrices = () => {
+    if (booking.pricePerNight && booking.subtotal && booking.serviceFee) {
+      console.log('✅ Using booking price data')
+      return { 
+        pricePerNight: booking.pricePerNight,
+        subtotal: booking.subtotal,
+        serviceFee: booking.serviceFee,
+        nights: booking.nights
+      }
+    }
+
+    console.log('⚠️ Calculating fallback prices')
+    // Fallback calculation if prices are missing
+    const total = booking.totalPrice || booking.total || 0
+    const nights = booking.nights || 0
+    const serviceFee = booking.serviceFee || (total * 0.1) // 10% service fee
+    const subtotal = total - serviceFee
+    const pricePerNight = nights > 0 ? subtotal / nights : 0
+
+    return { pricePerNight, subtotal, serviceFee, nights }
+  }
+
+  const prices = calculateMissingPrices()
+  console.log('💰 Final prices to display:', prices)
+
   const handlePrint = () => {
-    window.print()
+    // Create a new window with just the receipt content
+    const printWindow = window.open('', '_blank')
+    const receiptContent = document.getElementById(receiptId)
+    
+    if (printWindow && receiptContent) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Receipt - ${booking._id?.slice(-8).toUpperCase() || 'BOOKING'}</title>
+            <style>
+              * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+              }
+              body {
+                font-family: system-ui, -apple-system, sans-serif;
+                padding: 20px;
+                background: white;
+              }
+              @media print {
+                @page {
+                  margin: 1cm;
+                }
+              }
+            </style>
+            <style>
+              ${getComputedStyles()}
+            </style>
+          </head>
+          <body>
+            ${receiptContent.innerHTML}
+          </body>
+        </html>
+      `)
+      printWindow.document.close()
+      printWindow.focus()
+      setTimeout(() => {
+        printWindow.print()
+        printWindow.close()
+      }, 250)
+    }
+  }
+
+  const getComputedStyles = () => {
+    // Copy essential Tailwind styles
+    return `
+      .text-center { text-align: center; }
+      .mb-2 { margin-bottom: 0.5rem; }
+      .mb-3 { margin-bottom: 0.75rem; }
+      .mb-4 { margin-bottom: 1rem; }
+      .mb-6 { margin-bottom: 1.5rem; }
+      .mb-8 { margin-bottom: 2rem; }
+      .mt-1 { margin-top: 0.25rem; }
+      .mt-2 { margin-top: 0.5rem; }
+      .mt-4 { margin-top: 1rem; }
+      .p-4 { padding: 1rem; }
+      .p-6 { padding: 1.5rem; }
+      .pt-3 { padding-top: 0.75rem; }
+      .pt-6 { padding-top: 1.5rem; }
+      .pb-2 { padding-bottom: 0.5rem; }
+      .px-4 { padding-left: 1rem; padding-right: 1rem; }
+      .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+      .text-xs { font-size: 0.75rem; }
+      .text-sm { font-size: 0.875rem; }
+      .text-lg { font-size: 1.125rem; }
+      .text-xl { font-size: 1.25rem; }
+      .text-2xl { font-size: 1.5rem; }
+      .text-3xl { font-size: 1.875rem; }
+      .text-6xl { font-size: 3.75rem; }
+      .font-bold { font-weight: 700; }
+      .font-semibold { font-weight: 600; }
+      .font-mono { font-family: ui-monospace, monospace; }
+      .text-gray-500 { color: #6b7280; }
+      .text-gray-600 { color: #4b5563; }
+      .text-gray-700 { color: #374151; }
+      .text-gray-900 { color: #111827; }
+      .text-blue-600 { color: #2563eb; }
+      .text-green-600 { color: #16a34a; }
+      .text-green-800 { color: #166534; }
+      .text-yellow-600 { color: #ca8a04; }
+      .bg-gray-50 { background-color: #f9fafb; }
+      .bg-green-100 { background-color: #dcfce7; }
+      .bg-blue-50 { background-color: #eff6ff; }
+      .border-2 { border-width: 2px; }
+      .border-t-2 { border-top-width: 2px; }
+      .border-gray-200 { border-color: #e5e7eb; }
+      .border-gray-300 { border-color: #d1d5db; }
+      .border-blue-200 { border-color: #bfdbfe; }
+      .rounded-xl { border-radius: 0.75rem; }
+      .rounded-full { border-radius: 9999px; }
+      .flex { display: flex; }
+      .items-center { align-items: center; }
+      .items-end { align-items: flex-end; }
+      .justify-between { justify-content: space-between; }
+      .justify-center { justify-content: center; }
+      .gap-2 { gap: 0.5rem; }
+      .gap-3 { gap: 0.75rem; }
+      .gap-4 { gap: 1rem; }
+      .space-y-2 > * + * { margin-top: 0.5rem; }
+      .space-y-3 > * + * { margin-top: 0.75rem; }
+      .space-y-4 > * + * { margin-top: 1rem; }
+      .space-y-6 > * + * { margin-top: 1.5rem; }
+      .w-8 { width: 2rem; }
+      .h-8 { height: 2rem; }
+      .w-16 { width: 4rem; }
+      .h-16 { height: 4rem; }
+      .inline-block { display: inline-block; }
+      .inline-flex { display: inline-flex; }
+      .grid { display: grid; }
+      .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .tracking-wider { letter-spacing: 0.05em; }
+    `
   }
 
   const handleDownloadPDF = async () => {
@@ -34,79 +182,6 @@ function BookingReceipt({ booking, room, onClose }) {
 
   return (
     <>
-      {/* Print styles */}
-      <style>{`
-        @media print {
-          /* NUCLEAR OPTION: Hide absolutely everything */
-          body,
-          body > *,
-          body > * > *,
-          #root,
-          #root > * {
-            display: none !important;
-            visibility: hidden !important;
-            overflow: hidden !important;
-          }
-          
-          /* Only show this specific receipt and its parents */
-          #${receiptId} {
-            display: block !important;
-            visibility: visible !important;
-            position: fixed !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
-            background: white !important;
-            padding: 20px !important;
-            z-index: 999999 !important;
-            overflow: visible !important;
-          }
-          
-          #${receiptId},
-          #${receiptId} * {
-            display: block !important;
-            visibility: visible !important;
-          }
-          
-          /* Make sure flex/grid children display correctly */
-          #${receiptId} .flex,
-          #${receiptId} .grid {
-            display: flex !important;
-          }
-          
-          #${receiptId} .grid {
-            display: grid !important;
-          }
-          
-          /* Hide elements with no-print class */
-          .no-print,
-          .no-print * {
-            display: none !important;
-            visibility: hidden !important;
-          }
-          
-          /* Remove all decorative effects */
-          * {
-            box-shadow: none !important;
-            text-shadow: none !important;
-            animation: none !important;
-            transition: none !important;
-          }
-          
-          /* Page setup */
-          @page {
-            margin: 1cm;
-            size: A4 portrait;
-          }
-          
-          /* Remove page breaks inside important sections */
-          #${receiptId} > * {
-            page-break-inside: avoid;
-          }
-        }
-      `}</style>
-
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
         <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
           
@@ -235,12 +310,12 @@ function BookingReceipt({ booking, room, onClose }) {
                 </h3>
                 <div className="bg-gray-50 rounded-xl p-4 space-y-3">
                   <div className="flex justify-between text-gray-700">
-                    <span>${booking.pricePerNight || 0} × {booking.nights} {booking.nights === 1 ? 'night' : 'nights'}</span>
-                    <span className="font-semibold">${(booking.subtotal || 0).toFixed(2)}</span>
+                    <span>${prices.pricePerNight.toFixed(2)} × {prices.nights} {prices.nights === 1 ? 'night' : 'nights'}</span>
+                    <span className="font-semibold">${prices.subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-gray-700">
                     <span>Service fee</span>
-                    <span className="font-semibold">${(booking.serviceFee || 0).toFixed(2)}</span>
+                    <span className="font-semibold">${prices.serviceFee.toFixed(2)}</span>
                   </div>
                   <div className="border-t-2 border-gray-300 pt-3">
                     <div className="flex justify-between items-center">

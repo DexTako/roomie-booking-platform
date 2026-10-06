@@ -65,15 +65,22 @@ function BookingRequestCard({ booking, onApprove, onDecline }) {
 
   return (
     <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 hover:shadow-lg transition-shadow">
-      {/* Header with Room Name and Status */}
+      {/* Header with Room Name, Status and Edit Icon */}
       <div className="flex items-start justify-between mb-4">
-        <div>
+        <div className="flex-1">
           <h3 className="text-xl font-semibold text-gray-900 mb-1">
             {booking.roomName}
           </h3>
-          <p className="text-sm text-gray-500">Booking ID: #{booking.id}</p>
+          <p className="text-sm text-gray-500">Booking ID: #{booking._id?.slice(-8) || booking.id}</p>
         </div>
-        {getStatusBadge()}
+        <div className="flex items-center gap-3">
+          {getStatusBadge()}
+          <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Renter Information */}
@@ -137,16 +144,16 @@ function BookingRequestCard({ booking, onApprove, onDecline }) {
       <div className="border-t border-gray-200 pt-4 mb-4">
         <div className="space-y-2 text-sm">
           <div className="flex justify-between text-gray-600">
-            <span>${booking.pricePerNight} × {booking.nights} nights</span>
-            <span>{formatMoney(booking.subtotal)}</span>
+            <span>${booking.pricePerNight || 0} × {booking.nights || calculateNights()} nights</span>
+            <span>{formatMoney(booking.subtotal || 0)}</span>
           </div>
           <div className="flex justify-between text-gray-600">
             <span>Service fee</span>
-            <span>{formatMoney(booking.serviceFee)}</span>
+            <span>{formatMoney(booking.serviceFee || 0)}</span>
           </div>
           <div className="flex justify-between font-bold text-gray-900 text-base pt-2 border-t border-gray-200">
             <span>Total</span>
-            <span>{formatMoney(booking.totalPrice)}</span>
+            <span>{formatMoney(booking.totalPrice || 0)}</span>
           </div>
         </div>
       </div>

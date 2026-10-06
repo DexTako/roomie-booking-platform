@@ -61,9 +61,12 @@ function HostDashboard() {
       // Backend returns { success: true, bookings: [...] }
       const bookingsData = response.bookings || response || []
       
+      console.log('📦 Raw booking from backend:', bookingsData[0])
+      
       // Transform backend data to match frontend format
       const transformedBookings = bookingsData.map(booking => ({
         id: booking._id,
+        _id: booking._id,
         roomId: booking.roomId?._id || booking.roomId,
         roomName: booking.roomId?.name || booking.roomName || 'Unknown Room',
         renterName: booking.renterId?.name || booking.renterName || 'Guest',
@@ -72,10 +75,20 @@ function HostDashboard() {
         checkIn: booking.checkIn?.split('T')[0] || booking.checkIn,
         checkOut: booking.checkOut?.split('T')[0] || booking.checkOut,
         guests: booking.guests || 1,
+        // Price breakdown fields
+        nights: booking.nights || 0,
+        pricePerNight: booking.pricePerNight || 0,
+        subtotal: booking.subtotal || 0,
+        serviceFee: booking.serviceFee || 0,
         totalPrice: booking.totalPrice || 0,
+        // Other fields
+        specialRequests: booking.specialRequests || '',
+        paymentMethod: booking.paymentMethod || 'card',
         status: booking.status,
         createdAt: booking.createdAt
       }))
+      
+      console.log('📦 Transformed booking:', transformedBookings[0])
       
       setBookings(transformedBookings)
     } catch (error) {
