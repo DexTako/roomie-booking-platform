@@ -52,6 +52,24 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  bannedAt: {
+    type: Date,
+    default: null
+  },
+  bannedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  unbannedAt: {
+    type: Date,
+    default: null
+  },
+  unbannedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User', 
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now

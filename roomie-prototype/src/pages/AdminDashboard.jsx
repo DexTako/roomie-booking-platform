@@ -23,6 +23,7 @@ function AdminDashboard() {
   const [userRoleFilter, setUserRoleFilter] = useState('all') // all, admin, host, customer
   const [userSortBy, setSortBy] = useState('newest') // newest, oldest, name
   const [showExportMenu, setShowExportMenu] = useState(false)
+  const [banningUserId, setBanningUserId] = useState(null)
 
   useEffect(() => {
     loadDashboardData()
@@ -203,13 +204,19 @@ function AdminDashboard() {
       name: u.name,
       email: u.email,
       role: u.role,
-      joinedDate: new Date(u.createdAt).toLocaleDateString()
+      status: u.isActive === false ? 'banned' : 'active',
+      joinedDate: new Date(u.createdAt).toLocaleDateString(),
+      lastLogin: u.lastLogin ? new Date(u.lastLogin).toLocaleDateString() : 'Never',
+      totalBookings: bookings.filter(b => b.renterEmail === u.email).length,
+      totalSpent: bookings
+        .filter(b => b.renterEmail === u.email && (b.status === 'approved' || b.status === 'completed'))
+        .reduce((sum, b) => sum + b.totalPrice, 0)
     }))
     
     if (format === 'csv') {
-      exportToCSV(exportData, 'users')
+      exportToCSV(exportData, 'users_detailed')
     } else {
-      exportToJSON(exportData, 'users')
+      exportToJSON(exportData, 'users_detailed')
     }
     setShowExportMenu(false)
   }
@@ -219,18 +226,79 @@ function AdminDashboard() {
       bookingId: b.id,
       roomName: b.roomName,
       renterName: b.renterName,
+      renterEmail: b.renterEmail,
       checkIn: formatDateLabel(b.checkIn),
       checkOut: formatDateLabel(b.checkOut),
+      nights: b.nights || 1,
+      guests: b.guests,
+      pricePerNight: b.pricePerNight || 0,
+      subtotal: b.subtotal || 0,
+      serviceFee: b.serviceFee || 0,
+      totalPrice: b.totalPrice,
+      paymentMethod: b.paymentMethod || 'card',
       status: b.status,
-      totalPrice: b.totalPrice
+      createdDate: new Date(b.createdAt).toLocaleDateString()
     }))
     
     if (format === 'csv') {
-      exportToCSV(exportData, 'bookings')
+      exportToCSV(exportData, 'bookings_detailed')
     } else {
-      exportToJSON(exportData, 'bookings')
+      exportToJSON(exportData, 'bookings_detailed')
     }
     setShowExportMenu(false)
+  }
+
+  // Ban/Unban user functions
+  const handleBanUser = async (userId) => {
+    if (banningUserId) return
+    setBanningUserId(userId)
+    
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/admin/users/${userId}/ban`, {
+        method: 'PUT',
+        headers: { 
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (response.ok) {
+        await loadDashboardData() // Refresh data
+        console.log('User banned successfully')
+      } else {
+        console.error('Failed to ban user')
+      }
+    } catch (error) {
+      console.error('Error banning user:', error)
+    } finally {
+      setBanningUserId(null)
+    }
+  }
+
+  const handleUnbanUser = async (userId) => {
+    if (banningUserId) return
+    setBanningUserId(userId)
+    
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/admin/users/${userId}/unban`, {
+        method: 'PUT',
+        headers: { 
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (response.ok) {
+        await loadDashboardData() // Refresh data
+        console.log('User unbanned successfully')
+      } else {
+        console.error('Failed to unban user')
+      }
+    } catch (error) {
+      console.error('Error unbanning user:', error)
+    } finally {
+      setBanningUserId(null)
+    }
   }
 
   // Get revenue data by month for chart
@@ -559,13 +627,15 @@ function AdminDashboard() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="px-6 py-12 text-center">
+                      <td colSpan="6" className="px-6 py-12 text-center">
                         <div className="flex flex-col items-center">
                           <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
@@ -577,7 +647,7 @@ function AdminDashboard() {
                     </tr>
                   ) : (
                     filteredUsers.map(user => (
-                      <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                      <tr key={user._id || user.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
@@ -596,8 +666,43 @@ function AdminDashboard() {
                             {user.role}
                           </span>
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            user.isActive === false 
+                              ? 'bg-red-100 text-red-800' 
+                              : 'bg-green-100 text-green-800'
+                          }`}>
+                            {user.isActive === false ? 'Banned' : 'Active'}
+                          </span>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {new Date(user.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          {/* Only show ban/unban for non-admin and non-host users */}
+                          {user.role !== 'admin' && user.role !== 'host' ? (
+                            <div className="flex space-x-2">
+                              {user.isActive === false ? (
+                                <button
+                                  onClick={() => handleUnbanUser(user._id || user.id)}
+                                  disabled={banningUserId === (user._id || user.id)}
+                                  className="text-green-600 hover:text-green-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {banningUserId === (user._id || user.id) ? 'Unbanning...' : 'Unban'}
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleBanUser(user._id || user.id)}
+                                  disabled={banningUserId === (user._id || user.id)}
+                                  className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {banningUserId === (user._id || user.id) ? 'Banning...' : 'Ban'}
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 text-xs">Protected</span>
+                          )}
                         </td>
                       </tr>
                     ))

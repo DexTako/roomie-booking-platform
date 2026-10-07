@@ -145,3 +145,82 @@ exports.updateUserStatus = async (req, res) => {
     });
   }
 };
+// @desc    Ban user (Admin only)
+// @route   PUT /api/admin/users/:id/ban
+// @access  Private (Admin only)
+exports.banUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('-password');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Prevent banning admin or host users
+    if (user.role === 'admin' || user.role === 'host') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot ban admin or host users'
+      });
+    }
+
+    // Update user status to banned
+    user.isActive = false;
+    user.bannedAt = new Date();
+    user.bannedBy = req.user._id;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'User banned successfully',
+      user
+    });
+  } catch (error) {
+    console.error('Ban user error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error banning user',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Unban user (Admin only)
+// @route   PUT /api/admin/users/:id/unban
+// @access  Private (Admin only)
+exports.unbanUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('-password');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Update user status to active
+    user.isActive = true;
+    user.bannedAt = undefined;
+    user.bannedBy = undefined;
+    user.unbannedAt = new Date();
+    user.unbannedBy = req.user._id;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'User unbanned successfully',
+      user
+    });
+  } catch (error) {
+    console.error('Unban user error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error unbanning user',
+      error: error.message
+    });
+  }
+};

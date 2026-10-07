@@ -4,7 +4,9 @@ const {
   getAllUsers,
   getSystemStats,
   updateUserRole,
-  updateUserStatus
+  updateUserStatus,
+  banUser,
+  unbanUser
 } = require('../controllers/adminController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -17,5 +19,7 @@ router.get('/users', getAllUsers);
 router.get('/stats', getSystemStats);
 router.put('/users/:id/role', updateUserRole);
 router.put('/users/:id/status', updateUserStatus);
+router.put('/users/:id/ban', banUser);
+router.put('/users/:id/unban', unbanUser);
 
 module.exports = router;
