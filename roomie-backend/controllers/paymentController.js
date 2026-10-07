@@ -1,4 +1,8 @@
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+// Stripe is optional - only initialize if secret key is provided
+let stripe = null;
+if (process.env.STRIPE_SECRET_KEY) {
+  stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+}
 const Booking = require('../models/Booking');
 const Room = require('../models/Room');
 
@@ -7,6 +11,12 @@ const Room = require('../models/Room');
 // @access  Private
 exports.createPaymentIntent = async (req, res) => {
   try {
+    if (!stripe) {
+      return res.status(503).json({
+        success: false,
+        message: 'Stripe payment system is not configured. Please use alternative payment methods.'
+      });
+    }
     const { bookingData } = req.body;
     const { roomId, checkIn, checkOut, guests } = bookingData;
 
@@ -70,6 +80,12 @@ exports.createPaymentIntent = async (req, res) => {
 // @access  Private
 exports.confirmPayment = async (req, res) => {
   try {
+    if (!stripe) {
+      return res.status(503).json({
+        success: false,
+        message: 'Stripe payment system is not configured. Please use alternative payment methods.'
+      });
+    }
     const { paymentIntentId, bookingData } = req.body;
 
     // Retrieve payment intent from Stripe
@@ -147,6 +163,13 @@ exports.getStripeConfig = async (req, res) => {
 // @route   POST /api/payments/webhook
 // @access  Public
 exports.handleWebhook = async (req, res) => {
+  if (!stripe) {
+    return res.status(503).json({
+      success: false,
+      message: 'Stripe webhook is not configured.'
+    });
+  }
+  
   const sig = req.headers['stripe-signature'];
   let event;
 
