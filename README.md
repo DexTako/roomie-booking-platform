@@ -14,7 +14,9 @@ A full-stack room booking platform built for IT 305W course at Bulacan State Uni
    
    Room 3's 3D model is **469MB** and provided separately due to GitHub size limits.
    
-   **📁 Download**: `room 3 zipped copy due to big size.zip`
+   **📁 Download**: 
+   - **GitHub Releases**: [Download from Releases](https://github.com/DexTako/roomie-booking-platform/releases) *(recommended)*
+   - **Alternative**: Contact team lead for `room 3 zipped copy due to big size.zip`
    
    **📍 Extract to**: `roomie-prototype/public/models/room3/source/luxury_penthouse.glb`
    

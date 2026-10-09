@@ -16,7 +16,9 @@ cd roomie-booking-platform
 ```
 
 ### Step 2: Download & Extract Room 3 Model
-1. **Download** the zip file: `room 3 zipped copy due to big size.zip`
+1. **Download** the zip file from one of these sources:
+   - **GitHub Releases**: Go to [Releases](https://github.com/DexTako/roomie-booking-platform/releases) and download `room 3 zipped copy due to big size.zip`
+   - **Alternative**: Contact team lead for the zip file
 2. **Extract** the contents to get the `luxury_penthouse.glb` file
 3. **Copy** the `.glb` file to the correct location:
    ```
