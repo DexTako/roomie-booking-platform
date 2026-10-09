@@ -48,7 +48,7 @@ A full-stack room booking platform built for IT 305W course at Bulacan State Uni
 ## 🎯 Project Status
 
 **Ready for IT 305W Presentation** ✅
-- **Grade Assessment**: 91/100 (Excellent - Grade 1.25)
+- **Grade Assessment**: unknown
 - **All core features**: Implemented and tested
 - **Team deployment**: Instructions provided
 
