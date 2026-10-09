@@ -6,6 +6,9 @@ import {
   extractMovableItem,
   buildItemGrid,
   buildWalkGrid,
+  buildLevelWalkGrids,
+  walkGridAtY,
+  clampWalkY,
   moveItemWithCollision,
   moveWalkerWithCollision,
   walkPositionFree,
@@ -15,7 +18,7 @@ import {
 } from '../utils/roomPhysics'
 
 // Walk mode controls component
-function WalkControls({ moveSpeed, enabled, onCoordinateUpdate, walkGrid, bounds }) {
+function WalkControls({ moveSpeed, enabled, onCoordinateUpdate, walkGrid, walkLevels, bounds }) {
   const { camera } = useThree()
   const moveState = useRef({
     forward: false,
@@ -175,8 +178,10 @@ function WalkControls({ moveSpeed, enabled, onCoordinateUpdate, walkGrid, bounds
     // Apply velocity: horizontal movement is stopped by walls, vertical movement
     // is kept between the floor and the ceiling.
     const v = velocity.current
-    if (walkGrid) {
-      const r = moveWalkerWithCollision(walkGrid, camera.position.x, camera.position.z, v.x, v.z)
+    // Multi-storey rooms have one collision grid per floor; pick the one for the current height
+    const activeGrid = walkLevels ? walkGridAtY(walkLevels, camera.position.y) : walkGrid
+    if (activeGrid) {
+      const r = moveWalkerWithCollision(activeGrid, camera.position.x, camera.position.z, v.x, v.z)
       camera.position.x = r.x
       camera.position.z = r.z
     } else {
@@ -184,7 +189,10 @@ function WalkControls({ moveSpeed, enabled, onCoordinateUpdate, walkGrid, bounds
       camera.position.z += v.z
     }
     let nextY = camera.position.y + v.y
-    if (bounds) {
+    if (walkLevels) {
+      // Stay inside the current storey; only rise/sink through a stairwell or void
+      nextY = clampWalkY(walkLevels, camera.position.x, camera.position.z, camera.position.y, nextY)
+    } else if (bounds) {
       const height = bounds.max.y - bounds.min.y
       nextY = Math.min(bounds.max.y - height * 0.05, Math.max(bounds.min.y + height * 0.15, nextY))
     }
@@ -447,11 +455,13 @@ function DebugBridge({ physics }) {
 }
 
 // Room model component
-function RoomModel({ modelPath, isBooked, onModelInfo, scaleOverride, fixMaterials = false, movableItems = [], onPhysicsReady }) {
+function RoomModel({ modelPath, isBooked, onModelInfo, scaleOverride, fixMaterials = false, movableItems = [], walkConfig = null, onPhysicsReady }) {
   const { scene } = useGLTF(modelPath)
   // Kept in refs so changing them never re-runs the (heavy) setup below
   const movableRef = useRef(movableItems)
   const physicsCallbackRef = useRef(onPhysicsReady)
+  const walkConfigRef = useRef(walkConfig)
+  walkConfigRef.current = walkConfig
   movableRef.current = movableItems
   physicsCallbackRef.current = onPhysicsReady
 
@@ -533,7 +543,11 @@ function RoomModel({ modelPath, isBooked, onModelInfo, scaleOverride, fixMateria
     if (!scene.userData.roomiePhysics) {
       scene.updateMatrixWorld(true)
       const bounds = new THREE.Box3().setFromObject(scene)
-      const walkGrid = buildWalkGrid(scene, bounds) // includes furniture, so build it before items are cut out
+      // Multi-storey models get one grid per floor (see walkConfig); everything else one grid for the whole model.
+      // Both include furniture, so they are built before items are cut out.
+      const cfg = walkConfigRef.current
+      const walkLevels = cfg?.levels?.length ? buildLevelWalkGrids(scene, cfg, norm.scaleFactor) : null
+      const walkGrid = walkLevels ? walkLevels[0].grid : buildWalkGrid(scene, bounds)
       const items = []
       for (const cfg of movableRef.current) {
         const item = extractMovableItem(scene, cfg, bounds.min.y)
@@ -546,7 +560,7 @@ function RoomModel({ modelPath, isBooked, onModelInfo, scaleOverride, fixMateria
       // Items are collision-tested against the room as it is once every item has been cut out
       for (const item of items) item.phys = buildItemGrid(scene, item, bounds)
       linkItems(items) // items also stop at each other
-      scene.userData.roomiePhysics = { bounds, walkGrid, items }
+      scene.userData.roomiePhysics = { bounds, walkGrid, walkLevels, items }
       console.log(`🪑 Movable items ready: ${items.map(i => i.label).join(', ') || 'none'}`)
     }
     for (const item of scene.userData.roomiePhysics.items) processRoot(item.group, false)
@@ -654,7 +668,7 @@ function LoadingSpinner() {
 }
 
 // Main RoomViewer component
-function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride, initialCameraDistance, fixMaterials = false, enablePhysics = false, movableItems = [] }) {
+function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride, initialCameraDistance, fixMaterials = false, enablePhysics = false, movableItems = [], walkConfig = null }) {
   const [modelInfo, setModelInfo] = useState({})
   const [targetWaypoint, setTargetWaypoint] = useState(null)
   const [isTransitioning, setIsTransitioning] = useState(false)
@@ -782,14 +796,23 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
     
     if (newWalkMode && controlsRef.current && physicsRef.current?.walkGrid) {
       const cam = controlsRef.current.object
-      const { walkGrid, bounds } = physicsRef.current
-      const insideModel =
+      const { walkGrid, walkLevels, bounds } = physicsRef.current
+      const grid = walkLevels ? walkGridAtY(walkLevels, cam.position.y) : walkGrid
+      let insideModel =
         cam.position.x >= bounds.min.x && cam.position.x <= bounds.max.x &&
         cam.position.z >= bounds.min.z && cam.position.z <= bounds.max.z
+      if (walkLevels) {
+        // Multi-storey: "inside" means inside the building footprint and between its lowest floor and top ceiling
+        const last = walkLevels[walkLevels.length - 1]
+        insideModel =
+          cam.position.x >= grid.minX + 0.1 && cam.position.x <= grid.maxX - 0.1 &&
+          cam.position.z >= grid.minZ + 0.1 && cam.position.z <= grid.maxZ - 0.1 &&
+          cam.position.y >= walkLevels[0].yFloor && cam.position.y <= last.yCeil
+      }
       if (insideModel) {
         // Already in the apartment: only step out of a wall or piece of furniture
-        if (!walkPositionFree(walkGrid, cam.position.x, cam.position.z)) {
-          const spot = findNearestFree(walkGrid, cam.position.x, cam.position.z)
+        if (!walkPositionFree(grid, cam.position.x, cam.position.z)) {
+          const spot = findNearestFree(grid, cam.position.x, cam.position.z)
           cam.position.x = spot.x
           cam.position.z = spot.z
         }
@@ -800,7 +823,7 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
           cam.position.set(...first.position)
           cam.lookAt(new THREE.Vector3(...first.target))
         } else {
-          const spot = findNearestFree(walkGrid, 0, 0)
+          const spot = findNearestFree(grid, 0, 0)
           cam.position.set(spot.x, bounds.min.y + (bounds.max.y - bounds.min.y) * 0.5, spot.z)
         }
       }
@@ -1260,6 +1283,7 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
             scaleOverride={scaleOverride}
             fixMaterials={fixMaterials}
             movableItems={enablePhysics ? movableItems : []}
+            walkConfig={walkConfig}
             onPhysicsReady={handlePhysicsReady}
           />
 
@@ -1305,6 +1329,7 @@ function RoomViewer({ modelPath, waypoints = {}, isBooked = false, scaleOverride
                 enabled={isWalkMode}
                 onCoordinateUpdate={updateCoordinates}
                 walkGrid={physics?.walkGrid}
+                walkLevels={physics?.walkLevels}
                 bounds={physics?.bounds}
               />
               <MobileTouchCamera enabled={isWalkMode} />

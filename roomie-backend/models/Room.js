@@ -74,6 +74,21 @@ const roomSchema = new mongoose.Schema({
     default: false
   },
   movableItems: [movableItemSchema],
+  // Multi-storey walk mode (optional). Model units; levels listed lowest to highest.
+  // Rooms without it use a single walk grid for the whole model.
+  walkConfig: {
+    radius: Number,
+    levels: [{
+      _id: false,
+      name: String,
+      floorY: Number,
+      ceilY: Number,
+      area: {
+        min: [Number], // [x, z]
+        max: [Number]  // [x, z]
+      }
+    }]
+  },
   waypoints: {
     type: Map,
     of: waypointSchema,

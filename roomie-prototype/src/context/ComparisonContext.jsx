@@ -1,16 +1,44 @@
 import { createContext, useContext, useState, useEffect } from 'react'
+import { useAuth } from './AuthContext'
 
 const ComparisonContext = createContext()
 
 export function ComparisonProvider({ children }) {
-  const [comparison, setComparison] = useState(() => {
-    const saved = localStorage.getItem('roomComparison')
-    return saved ? JSON.parse(saved) : []
-  })
+  const [comparison, setComparison] = useState([])
+  const { user } = useAuth()
 
+  // Get user-specific localStorage key
+  const getComparisonKey = () => {
+    return user ? `roomComparison-${user.id}` : 'roomComparison-guest'
+  }
+
+  // Load user-specific comparison when user changes
   useEffect(() => {
-    localStorage.setItem('roomComparison', JSON.stringify(comparison))
-  }, [comparison])
+    if (user) {
+      // Load comparison for this specific user
+      const saved = localStorage.getItem(getComparisonKey())
+      if (saved) {
+        try {
+          setComparison(JSON.parse(saved))
+        } catch (error) {
+          console.error('Failed to load comparison:', error)
+          setComparison([])
+        }
+      } else {
+        setComparison([])
+      }
+    } else {
+      // Clear comparison when no user is logged in
+      setComparison([])
+    }
+  }, [user])
+
+  // Save to localStorage whenever comparison changes
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem(getComparisonKey(), JSON.stringify(comparison))
+    }
+  }, [comparison, user])
 
   const addToComparison = (roomId) => {
     if (comparison.length >= 3) {

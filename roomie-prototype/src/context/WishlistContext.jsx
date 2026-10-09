@@ -1,26 +1,44 @@
 import { createContext, useContext, useState, useEffect } from 'react'
+import { useAuth } from './AuthContext'
 
 const WishlistContext = createContext()
 
 export function WishlistProvider({ children }) {
   const [wishlist, setWishlist] = useState([])
+  const { user } = useAuth()
 
-  // Load wishlist from localStorage on mount
+  // Get user-specific localStorage key
+  const getWishlistKey = () => {
+    return user ? `roomie-wishlist-${user.id}` : 'roomie-wishlist-guest'
+  }
+
+  // Load user-specific wishlist when user changes
   useEffect(() => {
-    const saved = localStorage.getItem('roomie-wishlist')
-    if (saved) {
-      try {
-        setWishlist(JSON.parse(saved))
-      } catch (error) {
-        console.error('Failed to load wishlist:', error)
+    if (user) {
+      // Load wishlist for this specific user
+      const saved = localStorage.getItem(getWishlistKey())
+      if (saved) {
+        try {
+          setWishlist(JSON.parse(saved))
+        } catch (error) {
+          console.error('Failed to load wishlist:', error)
+          setWishlist([])
+        }
+      } else {
+        setWishlist([])
       }
+    } else {
+      // Clear wishlist when no user is logged in
+      setWishlist([])
     }
-  }, [])
+  }, [user])
 
   // Save to localStorage whenever wishlist changes
   useEffect(() => {
-    localStorage.setItem('roomie-wishlist', JSON.stringify(wishlist))
-  }, [wishlist])
+    if (user) {
+      localStorage.setItem(getWishlistKey(), JSON.stringify(wishlist))
+    }
+  }, [wishlist, user])
 
   const addToWishlist = (roomId) => {
     if (!wishlist.includes(roomId)) {

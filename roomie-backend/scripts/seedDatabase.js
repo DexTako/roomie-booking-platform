@@ -207,9 +207,54 @@ const seedData = async () => {
           "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&q=80",
           "https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800&q=80"
         ],
-        model3D: null,
-        has3D: false,
-        waypoints: {},
+        model3D: "/models/room3/source/luxury_penthouse.glb",
+        has3D: true,
+        fixMaterials: false,
+        enablePhysics: true,
+        // Two-storey duplex: walk mode builds one collision grid per floor.
+        // All values are in the GLB's own units (not the viewer's scaled world).
+        walkConfig: {
+          radius: 9,
+          levels: [
+            { name: "Ground floor", floorY: 60, ceilY: 180, area: { min: [268, -1262], max: [712, -652] } },
+            { name: "Upper floor", floorY: 195, ceilY: 315, area: { min: [268, -1262], max: [712, -575] } }
+          ]
+        },
+        // Positions are at eye height of each floor (ground floor y -0.46, upper floor y 0.36)
+        waypoints: {
+          entrance: {
+            position: [0.38, -0.46, 0.45],
+            target: [0.38, -0.55, 1.06]
+          },
+          livingRoom: {
+            position: [-0.42, -0.46, 0.94],
+            target: [-0.94, -0.55, 1]
+          },
+          kitchen: {
+            position: [-0.14, -0.46, -1.5],
+            target: [-1, -0.52, -1.14]
+          },
+          staircase: {
+            position: [0.38, -0.46, -0.16],
+            target: [0.38, -0.1, -1.14]
+          },
+          eastLounge: {
+            position: [1.26, -0.46, 0.82],
+            target: [1.66, -0.55, 0.94]
+          },
+          upperGallery: {
+            position: [0.38, 0.36, -1.5],
+            target: [0.38, 0.18, 0.08]
+          },
+          westBedroom: {
+            position: [-0.14, 0.36, 0.76],
+            target: [-0.9, 0.24, 1]
+          },
+          eastBedroom: {
+            position: [0.9, 0.36, 0.76],
+            target: [1.63, 0.24, 1]
+          }
+        },
         hostId: host._id,
         isActive: true,
         isAvailable: true

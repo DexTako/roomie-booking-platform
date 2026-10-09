@@ -231,3 +231,73 @@ exports.logout = async (req, res) => {
     message: 'Logged out successfully'
   });
 };
+
+// @desc    Forgot password
+// @route   POST /api/auth/forgot-password
+// @access  Public
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email address'
+      });
+    }
+
+    // Check if user exists
+    const user = await User.findOne({ email: email.toLowerCase() });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'No user found with this email address'
+      });
+    }
+
+    // For demo purposes, return a simple success message
+    // In production, you would generate a reset token and send email
+    res.status(200).json({
+      success: true,
+      message: 'Password reset instructions sent to your email (Demo: Use admin123 for admin accounts)'
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error processing forgot password request',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Reset password
+// @route   POST /api/auth/reset-password
+// @access  Public
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide token and new password'
+      });
+    }
+
+    // For demo purposes, return a simple message
+    // In production, you would verify the token and update password
+    res.status(200).json({
+      success: true,
+      message: 'Password reset successful (Demo mode)'
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error resetting password',
+      error: error.message
+    });
+  }
+};

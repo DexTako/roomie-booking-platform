@@ -513,6 +513,84 @@ export function buildWalkGrid(scene, bounds) {
   return g
 }
 
+// ======================= MULTI-STOREY WALKING ===============================
+// Some models (e.g. the penthouse) have more than one floor. A single grid cut at
+// "body height of the whole model" then hits the slab between the floors and
+// blocks the entire lower storey. For those rooms the walk grid is built once
+// per storey instead, from a config written in the model's own units:
+//
+//   walkConfig: {
+//     radius: 9,                                   // body radius (model units)
+//     levels: [{ name, floorY, ceilY, area: { min: [x, z], max: [x, z] } }, ...]
+//   }
+//
+// Levels are listed from the lowest to the highest storey.
+export function buildLevelWalkGrids(scene, cfg, scale) {
+  const toWorld = (v, axis) => v * scale + scene.position[axis]
+  const meshes = []
+  scene.traverse(o => { if (o.isMesh) meshes.push(o) })
+  const levels = []
+  for (const lv of cfg.levels) {
+    const yFloor = toWorld(lv.floorY, 'y')
+    const yCeil = toWorld(lv.ceilY, 'y')
+    const h = yCeil - yFloor
+    const area = {
+      min: { x: toWorld(lv.area.min[0], 'x'), z: toWorld(lv.area.min[1], 'z') },
+      max: { x: toWorld(lv.area.max[0], 'x'), z: toWorld(lv.area.max[1], 'z') }
+    }
+    if (area.min.x > area.max.x) [area.min.x, area.max.x] = [area.max.x, area.min.x]
+    if (area.min.z > area.max.z) [area.min.z, area.max.z] = [area.max.z, area.min.z]
+    const g = createGrid(area.min.x - 0.1, area.max.x + 0.1, area.min.z - 0.1, area.max.z + 0.1)
+    // waist to head height of THIS storey only
+    rasterizeMeshes(g, meshes, yFloor + h * 0.2, yFloor + h * 0.7)
+    blockOutside(g, area)
+    finalizeGrid(g)
+    g.walkRadius = (cfg.radius ?? 9) * scale
+
+    // Solid floor slab between the previous storey and this one. Anywhere it is
+    // NOT blocked (a stairwell / void) the camera may move between the two storeys.
+    let slab = null
+    if (levels.length > 0) {
+      const below = levels[levels.length - 1]
+      slab = createGrid(area.min.x - 0.1, area.max.x + 0.1, area.min.z - 0.1, area.max.z + 0.1)
+      const pad = (yFloor - below.yCeil) * 0.25
+      rasterizeMeshes(slab, meshes, below.yCeil - pad, yFloor + pad)
+      finalizeGrid(slab)
+      slab.walkRadius = g.walkRadius
+    }
+    levels.push({ name: lv.name, yFloor, yCeil, grid: g, slab })
+  }
+  return levels
+}
+
+// Which storey a camera height belongs to (the boundary sits halfway through the slab)
+export function levelIndexAtY(levels, y) {
+  for (let i = 0; i < levels.length - 1; i++) {
+    if (y < (levels[i].yCeil + levels[i + 1].yFloor) / 2) return i
+  }
+  return levels.length - 1
+}
+
+export function walkGridAtY(levels, y) {
+  return levels[levelIndexAtY(levels, y)].grid
+}
+
+// Keeps the camera between the floor and ceiling of its storey. Where the next
+// storey is open at this spot too (a stairwell / void) the camera may rise or
+// sink into it, so floors are never crossed through solid slab.
+export function clampWalkY(levels, x, z, y, nextY) {
+  const i = levelIndexAtY(levels, y)
+  const range = (lv) => {
+    const h = lv.yCeil - lv.yFloor
+    return [lv.yFloor + h * 0.15, lv.yCeil - h * 0.05]
+  }
+  let [lo, hi] = range(levels[i])
+  // open slab above / below = stairwell: the neighbouring storey is reachable from here
+  if (i < levels.length - 1 && walkPositionFree(levels[i + 1].slab, x, z) && walkPositionFree(levels[i + 1].grid, x, z)) hi = range(levels[i + 1])[1]
+  if (i > 0 && walkPositionFree(levels[i].slab, x, z) && walkPositionFree(levels[i - 1].grid, x, z)) lo = range(levels[i - 1])[0]
+  return Math.min(hi, Math.max(lo, nextY))
+}
+
 export function walkPositionFree(grid, x, z, r = grid.walkRadius ?? 0.1) {
   return !rectBlocked(grid, x - r, x + r, z - r, z + r)
 }
