@@ -5,6 +5,14 @@ import api from '../services/api'
 import Breadcrumb from '../components/Breadcrumb'
 import ConfirmationModal from '../components/ConfirmationModal'
 import NotificationModal from '../components/NotificationModal'
+import BookingMessagesModal from '../components/BookingMessagesModal'
+
+// Booking statuses that still count as a live reservation.
+// The backend uses 'approved' (older code used 'confirmed'), so accept both.
+const ACTIVE_STATUSES = ['pending', 'approved', 'confirmed']
+
+// Backend sends ISO timestamps (checkIn/checkOut). The page works with YYYY-MM-DD.
+const toDay = (value) => (value ? String(value).slice(0, 10) : '')
 
 function MyBookingsPage({ onBack, onViewRoom }) {
   const { user } = useAuth()
@@ -13,6 +21,8 @@ function MyBookingsPage({ onBack, onViewRoom }) {
   const [isLoadingRooms, setIsLoadingRooms] = useState(true)
   const [isLoadingBookings, setIsLoadingBookings] = useState(true)
   const [filter, setFilter] = useState('all') // all, upcoming, past, pending
+  const [messageBooking, setMessageBooking] = useState(null)
+  const [unreadByBooking, setUnreadByBooking] = useState({})
   
   // Modal states
   const [confirmationModal, setConfirmationModal] = useState({ isOpen: false })
@@ -46,13 +56,36 @@ function MyBookingsPage({ onBack, onViewRoom }) {
     setIsLoadingBookings(true)
     try {
       const data = await api.getUserBookings()
-      setBookings(data)
+      // Map the backend field names (checkIn, checkOut, guests) to what this page uses
+      setBookings((data || []).map(b => ({
+        ...b,
+        checkInDate: b.checkInDate || toDay(b.checkIn),
+        checkOutDate: b.checkOutDate || toDay(b.checkOut),
+        numberOfGuests: b.numberOfGuests || b.guests
+      })))
     } catch (error) {
       console.error('Failed to fetch bookings:', error)
     } finally {
       setIsLoadingBookings(false)
     }
   }
+
+  const loadUnread = async () => {
+    try {
+      const res = await api.messages.getUnread()
+      setUnreadByBooking(res.byBooking || {})
+    } catch {
+      // badges are optional, ignore errors
+    }
+  }
+
+  useEffect(() => {
+    if (user) {
+      loadUnread()
+      const timer = setInterval(loadUnread, 30000)
+      return () => clearInterval(timer)
+    }
+  }, [user])
 
   const handleCancel = async (bookingId) => {
     setConfirmationModal({
@@ -75,7 +108,7 @@ function MyBookingsPage({ onBack, onViewRoom }) {
           setNotificationModal({
             isOpen: true,
             title: 'Cancellation Failed', 
-            message: 'Failed to cancel booking. Please try again.',
+            message: error.message || 'Failed to cancel booking. Please try again.',
             type: 'error'
           })
         }
@@ -87,14 +120,18 @@ function MyBookingsPage({ onBack, onViewRoom }) {
     return rooms.find(room => room.id === parseInt(id) || room._id === id)
   }
 
+  // Upcoming = still active and the stay has not ended yet (so a stay in progress counts too)
+  const isUpcoming = (b) => ACTIVE_STATUSES.includes(b.status) && b.checkOutDate >= todayISO()
+  const isPast = (b) => b.checkOutDate < todayISO() || b.status === 'completed'
+
   const getFilteredBookings = () => {
-    const today = todayISO()
-    
     switch(filter) {
       case 'upcoming':
-        return bookings.filter(b => b.checkInDate >= today && (b.status === 'confirmed' || b.status === 'pending'))
+        return bookings
+          .filter(isUpcoming)
+          .sort((a, b) => a.checkInDate.localeCompare(b.checkInDate))
       case 'past':
-        return bookings.filter(b => b.checkOutDate < today || b.status === 'completed')
+        return bookings.filter(isPast)
       case 'pending':
         return bookings.filter(b => b.status === 'pending')
       default:
@@ -107,7 +144,9 @@ function MyBookingsPage({ onBack, onViewRoom }) {
   const getStatusColor = (status) => {
     switch(status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800'
-      case 'confirmed': return 'bg-green-100 text-green-800'
+      case 'confirmed':
+      case 'approved': return 'bg-green-100 text-green-800'
+      case 'declined':
       case 'cancelled': return 'bg-red-100 text-red-800'
       case 'completed': return 'bg-gray-100 text-gray-800'
       default: return 'bg-gray-100 text-gray-800'
@@ -144,9 +183,9 @@ function MyBookingsPage({ onBack, onViewRoom }) {
             <div className="bg-white rounded-lg shadow-sm p-1 flex gap-2 mb-6">
               {[
                 { id: 'all', label: 'All Bookings', count: bookings.length },
-                { id: 'upcoming', label: 'Upcoming', count: bookings.filter(b => b.checkInDate >= new Date().toISOString().split('T')[0] && (b.status === 'confirmed' || b.status === 'pending')).length },
+                { id: 'upcoming', label: 'Upcoming', count: bookings.filter(isUpcoming).length },
                 { id: 'pending', label: 'Pending', count: bookings.filter(b => b.status === 'pending').length },
-                { id: 'past', label: 'Past', count: bookings.filter(b => b.checkOutDate < new Date().toISOString().split('T')[0] || b.status === 'completed').length }
+                { id: 'past', label: 'Past', count: bookings.filter(isPast).length }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -245,7 +284,7 @@ function MyBookingsPage({ onBack, onViewRoom }) {
                         >
                           View Room
                         </button>
-                        {(booking.status === 'pending' || booking.status === 'confirmed') && booking.checkOutDate >= todayISO() && (
+                        {ACTIVE_STATUSES.includes(booking.status) && booking.checkOutDate >= todayISO() && (
                           <button
                             onClick={() => handleCancel(booking._id)}
                             className="px-4 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors text-sm font-medium"
@@ -253,9 +292,17 @@ function MyBookingsPage({ onBack, onViewRoom }) {
                             Cancel Booking
                           </button>
                         )}
-                        {booking.status === 'confirmed' && (
-                          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+                        {booking.status !== 'cancelled' && (
+                          <button
+                            onClick={() => setMessageBooking(booking)}
+                            className="relative px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                          >
                             Contact Host
+                            {unreadByBooking[booking._id] > 0 && (
+                              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full min-w-[20px] h-5 px-1 flex items-center justify-center">
+                                {unreadByBooking[booking._id]}
+                              </span>
+                            )}
                           </button>
                         )}
                       </div>
@@ -268,6 +315,19 @@ function MyBookingsPage({ onBack, onViewRoom }) {
         )}
           </>
         )}
+
+      {/* Messages with the host */}
+      {messageBooking && (
+        <BookingMessagesModal
+          bookingId={messageBooking._id}
+          title={`Message the host · ${messageBooking.roomId?.name || 'Room'}`}
+          subtitle={`${formatDateLabel(messageBooking.checkInDate)} → ${formatDateLabel(messageBooking.checkOutDate)}`}
+          onClose={() => {
+            setMessageBooking(null)
+            loadUnread()
+          }}
+        />
+      )}
 
       {/* Confirmation Modal */}
       <ConfirmationModal

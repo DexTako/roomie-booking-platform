@@ -1,3 +1,4 @@
+import AdminContactMessages from '../components/AdminContactMessages'
 import { useState, useEffect } from 'react'
 import api from '../services/api'
 import { formatDateLabel, formatMoney } from '../utils/pricing'
@@ -28,12 +29,13 @@ function AdminDashboard() {
   useEffect(() => {
     loadDashboardData()
     // Refresh every 30 seconds for live updates
-    const interval = setInterval(loadDashboardData, 30000)
+    const interval = setInterval(() => loadDashboardData(true), 30000)
     return () => clearInterval(interval)
   }, [])
 
-  const loadDashboardData = async () => {
-    setIsLoading(true)
+  // silent = background refresh: don't replace the whole dashboard with the spinner
+  const loadDashboardData = async (silent = false) => {
+    if (!silent) setIsLoading(true)
     try {
       // Fetch all data from backend
       const [usersRes, bookingsRes, roomsRes] = await Promise.all([
@@ -70,18 +72,20 @@ function AdminDashboard() {
       }))
 
       // Fetch all reviews from all rooms
-      let allReviews = []
-      for (const room of roomsRes) {
-        try {
-          const roomReviews = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/reviews/room/${room._id}`)
-          const reviewData = await roomReviews.json()
-          if (reviewData.success && reviewData.reviews) {
-            allReviews = [...allReviews, ...reviewData.reviews]
+      // (requested in parallel instead of one room after another)
+      const reviewLists = await Promise.all(
+        roomsRes.map(async (room) => {
+          try {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/reviews/room/${room._id}`)
+            const reviewData = await res.json()
+            return reviewData.success && reviewData.reviews ? reviewData.reviews : []
+          } catch (error) {
+            console.error(`Failed to fetch reviews for room ${room._id}:`, error)
+            return []
           }
-        } catch (error) {
-          console.error(`Failed to fetch reviews for room ${room._id}:`, error)
-        }
-      }
+        })
+      )
+      const allReviews = reviewLists.flat()
 
       // Calculate stats
       const hosts = allUsers.filter(u => u.role === 'host')
@@ -266,7 +270,8 @@ function AdminDashboard() {
         await loadDashboardData() // Refresh data
         console.log('User banned successfully')
       } else {
-        console.error('Failed to ban user')
+        const data = await response.json().catch(() => ({}))
+        alert(data.message || 'Could not ban this user. Please try again.')
       }
     } catch (error) {
       console.error('Error banning user:', error)
@@ -292,7 +297,8 @@ function AdminDashboard() {
         await loadDashboardData() // Refresh data
         console.log('User unbanned successfully')
       } else {
-        console.error('Failed to unban user')
+        const data = await response.json().catch(() => ({}))
+        alert(data.message || 'Could not unban this user. Please try again.')
       }
     } catch (error) {
       console.error('Error unbanning user:', error)
@@ -508,6 +514,16 @@ function AdminDashboard() {
               All Bookings ({stats.totalBookings})
             </button>
             <button
+              onClick={() => setActiveTab('messages')}
+              className={`flex-1 py-4 px-6 font-medium transition-colors whitespace-nowrap ${
+                activeTab === 'messages'
+                  ? 'border-b-2 border-purple-600 text-purple-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Messages
+            </button>
+            <button
               onClick={() => setActiveTab('analytics')}
               className={`flex-1 py-4 px-6 font-medium transition-colors whitespace-nowrap ${
                 activeTab === 'analytics'
@@ -558,9 +574,6 @@ function AdminDashboard() {
                     className="w-full p-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-left font-medium transition-colors"
                   >
                     View All Bookings →
-                  </button>
-                  <button className="w-full p-3 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg text-left font-medium transition-colors">
-                    Export Reports →
                   </button>
                 </div>
               </div>
@@ -759,6 +772,8 @@ function AdminDashboard() {
             )}
           </div>
         )}
+
+        {activeTab === 'messages' && <AdminContactMessages />}
 
         {activeTab === 'analytics' && (
           <div className="space-y-6">

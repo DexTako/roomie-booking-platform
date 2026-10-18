@@ -1,12 +1,20 @@
 import { useState } from 'react'
+import SocialLinks from '../components/SocialLinks'
+import FaqModal from '../components/FaqModal'
+import api from '../services/api'
+import { useAuth } from '../context/AuthContext'
 
 function ContactPage({ onBack, onShowToast }) {
+  const { user } = useAuth()
+  const [isSending, setIsSending] = useState(false)
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
+    name: user?.name || '',
+    email: user?.email || '',
     subject: '',
     message: ''
   })
+
+  const [showFaq, setShowFaq] = useState(false)
 
   const handleChange = (e) => {
     setFormData({
@@ -15,20 +23,29 @@ function ContactPage({ onBack, onShowToast }) {
     })
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
+    if (isSending) return
 
-    onShowToast(
-      'Message sent successfully! We\'ll get back to you soon.',
-      'success'
-    )
+    setIsSending(true)
+    try {
+      const res = await api.contact.send(formData)
 
-    setFormData({
-      name: '',
-      email: '',
-      subject: '',
-      message: ''
-    })
+      onShowToast(res.message || 'Message sent! We\'ll get back to you by email.', 'success')
+
+      // Keep name/email for logged-in users, clear the rest
+      setFormData({
+        name: user?.name || '',
+        email: user?.email || '',
+        subject: '',
+        message: ''
+      })
+    } catch (error) {
+      // Shows the real reason (e.g. "Your message is too short...") instead of a fake success
+      onShowToast(error.message || 'Your message could not be sent. Please try again.', 'error')
+    } finally {
+      setIsSending(false)
+    }
   }
 
   const contactMethods = [
@@ -426,7 +443,10 @@ function ContactPage({ onBack, onShowToast }) {
                 {/* Submit */}
                 <button
                   type="submit"
+                  disabled={isSending}
                   className="
+                    disabled:opacity-60
+                    disabled:cursor-not-allowed
                     w-full
                     flex
                     items-center
@@ -449,7 +469,7 @@ function ContactPage({ onBack, onShowToast }) {
                     shadow-blue-600/20
                   "
                 >
-                  Send Message
+                  {isSending ? 'Sending...' : 'Send Message'}
 
                   <svg
                     className="w-4 h-4"
@@ -647,6 +667,7 @@ function ContactPage({ onBack, onShowToast }) {
 
                 <button
                   type="button"
+                  onClick={() => setShowFaq(true)}
                   className="
                     group
                     inline-flex
@@ -709,46 +730,7 @@ function ContactPage({ onBack, onShowToast }) {
               </div>
 
 
-              <div className="flex gap-3">
-
-                {[
-                  'facebook',
-                  'twitter',
-                  'instagram',
-                  'linkedin'
-                ].map((social) => (
-
-                  <button
-                    key={social}
-                    type="button"
-                    title={social}
-                    className="
-                      w-10
-                      h-10
-                      border
-                      border-gray-200
-                      bg-white
-                      rounded-xl
-                      flex
-                      items-center
-                      justify-center
-                      text-sm
-                      font-bold
-                      text-gray-600
-                      hover:bg-blue-600
-                      hover:border-blue-600
-                      hover:text-white
-                      hover:-translate-y-1
-                      transition-all
-                      duration-300
-                    "
-                  >
-                    {social[0].toUpperCase()}
-                  </button>
-
-                ))}
-
-              </div>
+              <SocialLinks />
 
             </div>
 
@@ -757,6 +739,8 @@ function ContactPage({ onBack, onShowToast }) {
         </div>
 
       </main>
+
+      {showFaq && <FaqModal onClose={() => setShowFaq(false)} />}
 
     </div>
   )

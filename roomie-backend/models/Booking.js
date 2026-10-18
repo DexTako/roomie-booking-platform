@@ -212,7 +212,7 @@ bookingSchema.pre('save', function(next) {
     }
     
     if (!this.serviceFee && this.subtotal) {
-      this.serviceFee = this.subtotal * 0.15; // 15% service fee
+      this.serviceFee = this.subtotal * 0.10; // 10% service fee (matches frontend)
     }
     
     if (!this.totalPrice && this.subtotal && this.serviceFee) {

@@ -1,5 +1,6 @@
 const Room = require('../models/Room');
 const Booking = require('../models/Booking');
+const Review = require('../models/Review');
 
 // @desc    Get all rooms
 // @route   GET /api/rooms
@@ -19,19 +20,38 @@ exports.getAllRooms = async (req, res) => {
       if (maxPrice) query.pricePerNight.$lte = parseFloat(maxPrice);
     }
     if (search) {
+      // Escape regex characters so user input can't break (or slow down) the query
+      const safeSearch = String(search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-        { location: { $regex: search, $options: 'i' } }
+        { name: { $regex: safeSearch, $options: 'i' } },
+        { description: { $regex: safeSearch, $options: 'i' } },
+        { location: { $regex: safeSearch, $options: 'i' } }
       ];
     }
 
     const rooms = await Room.find(query).sort({ createdAt: -1 });
 
+    // Real rating summary per room (from the reviews collection)
+    const ratingRows = await Review.aggregate([
+      { $match: { isApproved: true, roomId: { $in: rooms.map(r => r._id) } } },
+      { $group: { _id: '$roomId', avg: { $avg: '$rating' }, count: { $sum: 1 } } }
+    ]);
+    const ratingByRoom = {};
+    ratingRows.forEach(r => { ratingByRoom[r._id.toString()] = r; });
+
+    const roomsWithRatings = rooms.map(room => {
+      const stats = ratingByRoom[room._id.toString()];
+      return {
+        ...room.toObject(),
+        averageRating: stats ? Math.round(stats.avg * 10) / 10 : 0,
+        reviewCount: stats ? stats.count : 0
+      };
+    });
+
     res.status(200).json({
       success: true,
-      count: rooms.length,
-      rooms
+      count: roomsWithRatings.length,
+      rooms: roomsWithRatings
     });
   } catch (error) {
     console.error('Get rooms error:', error);

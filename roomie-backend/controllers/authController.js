@@ -3,9 +3,9 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
 // Generate JWT Token
-const generateToken = (id) => {
+const generateToken = (id, rememberMe = true) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: '30d'
+    expiresIn: rememberMe ? '30d' : '1d'
   });
 };
 
@@ -14,22 +14,34 @@ const generateToken = (id) => {
 // @access  Public
 exports.register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { password } = req.body;
+    const name = (req.body.name || '').trim();
+    const email = (req.body.email || '').trim().toLowerCase();
 
-    // Validation
+    // Validation - one clear message per problem
     if (!name || !email || !password) {
+      const missing = [!name && 'name', !email && 'email', !password && 'password'].filter(Boolean);
       return res.status(400).json({
         success: false,
-        message: 'Please provide name, email, and password'
+        message: `Please enter your ${missing.join(', ')}.`
       });
+    }
+    if (name.length < 2) {
+      return res.status(400).json({ success: false, message: 'Name must be at least 2 characters long.' });
+    }
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long.' });
     }
 
     // Check if user already exists
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({
+      return res.status(409).json({
         success: false,
-        message: 'Email already registered'
+        message: 'An account with this email already exists. Please log in instead.'
       });
     }
 
@@ -39,7 +51,7 @@ exports.register = async (req, res) => {
     // Create user (public registration is always 'customer' role)
     const user = await User.create({
       name,
-      email: email.toLowerCase(),
+      email,
       password: hashedPassword,
       role: 'customer'
     });
@@ -61,9 +73,22 @@ exports.register = async (req, res) => {
     });
   } catch (error) {
     console.error('Register error:', error);
+    // Two sign-ups with the same email at the same moment
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: 'An account with this email already exists. Please log in instead.'
+      });
+    }
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: Object.values(error.errors).map(e => e.message).join(' ')
+      });
+    }
     res.status(500).json({
       success: false,
-      message: 'Error registering user',
+      message: 'We could not create your account right now. Please try again.',
       error: error.message
     });
   }
@@ -77,43 +102,47 @@ exports.login = async (req, res) => {
     const { email, password } = req.body;
 
     // Validation
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide email and password'
-      });
+    if (!email && !password) {
+      return res.status(400).json({ success: false, message: 'Please enter your email and password.' });
+    }
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Please enter your email address.' });
+    }
+    if (!password) {
+      return res.status(400).json({ success: false, message: 'Please enter your password.' });
     }
 
     // Find user (include password field for comparison)
-    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+    const user = await User.findOne({ email: email.trim().toLowerCase() }).select('+password');
+
+    // Same wording for "no such email" and "wrong password" on purpose, so the
+    // login form can't be used to find out which emails have accounts.
+    const badCredentials = {
+      success: false,
+      message: 'Incorrect email or password. Please check your details, or create an account if you are new.'
+    };
 
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid email or password'
-      });
-    }
-
-    // Check if user is active
-    if (!user.isActive) {
-      return res.status(401).json({
-        success: false,
-        message: 'Account has been deactivated'
-      });
+      return res.status(401).json(badCredentials);
     }
 
     // Compare password
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-      return res.status(401).json({
+      return res.status(401).json(badCredentials);
+    }
+
+    // Only tell the owner of the account (correct password) that it is deactivated
+    if (!user.isActive) {
+      return res.status(403).json({
         success: false,
-        message: 'Invalid email or password'
+        message: 'This account has been deactivated. Please contact support.'
       });
     }
 
     // Generate token
-    const token = generateToken(user._id);
+    const token = generateToken(user._id, req.body.rememberMe !== false);
 
     res.status(200).json({
       success: true,
@@ -135,7 +164,7 @@ exports.login = async (req, res) => {
     console.error('Login error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error logging in',
+      message: 'We could not log you in right now. Please try again.',
       error: error.message
     });
   }

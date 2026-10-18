@@ -20,6 +20,14 @@ export const AuthProvider = ({ children }) => {
 
   // Load user from localStorage on mount and verify token
   useEffect(() => {
+    // "Remember me" unchecked = stay signed in only until the browser is closed.
+    // sessionStorage is wiped when the browser closes, localStorage is not.
+    if (localStorage.getItem('rememberMe') === 'false' && !sessionStorage.getItem('sessionActive')) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('currentUser')
+      localStorage.removeItem('rememberMe')
+    }
+
     const token = localStorage.getItem('token')
     const storedUser = localStorage.getItem('currentUser')
     
@@ -29,6 +37,24 @@ export const AuthProvider = ({ children }) => {
         setUser(userData)
         // Set token in api service
         api.setAuthToken(token)
+
+        // Re-sync with the server so the profile picture/name are never stale,
+        // and sign out if the token has expired or the account was removed/banned.
+        api.auth.getMe()
+          .then((res) => {
+            if (res?.user) {
+              setUser(res.user)
+              localStorage.setItem('currentUser', JSON.stringify(res.user))
+            }
+          })
+          .catch((err) => {
+            if (err.status === 401) {
+              setUser(null)
+              localStorage.removeItem('currentUser')
+              localStorage.removeItem('token')
+              api.setAuthToken(null)
+            }
+          })
       } catch (error) {
         console.error('Failed to parse stored user:', error)
         localStorage.removeItem('currentUser')
@@ -39,14 +65,16 @@ export const AuthProvider = ({ children }) => {
   }, [])
 
   // Login function
-  const login = async (email, password) => {
+  const login = async (email, password, rememberMe = false) => {
     try {
-      const response = await api.login(email, password)
+      const response = await api.login(email, password, rememberMe)
       
       if (response.token && response.user) {
         // Store token and user data
         localStorage.setItem('token', response.token)
         localStorage.setItem('currentUser', JSON.stringify(response.user))
+        localStorage.setItem('rememberMe', rememberMe ? 'true' : 'false')
+        sessionStorage.setItem('sessionActive', '1')
         
         // Set token in api service
         api.setAuthToken(response.token)
@@ -62,7 +90,7 @@ export const AuthProvider = ({ children }) => {
       console.error('Login error:', error)
       return { 
         success: false, 
-        error: error.response?.data?.message || 'Login failed. Please try again.' 
+        error: error.message || 'Login failed. Please try again.' 
       }
     }
   }
@@ -76,6 +104,8 @@ export const AuthProvider = ({ children }) => {
         // Store token and user data
         localStorage.setItem('token', response.token)
         localStorage.setItem('currentUser', JSON.stringify(response.user))
+        localStorage.setItem('rememberMe', 'true')
+        sessionStorage.setItem('sessionActive', '1')
         
         // Set token in api service
         api.setAuthToken(response.token)
@@ -91,7 +121,7 @@ export const AuthProvider = ({ children }) => {
       console.error('Registration error:', error)
       return { 
         success: false, 
-        error: error.response?.data?.message || 'Registration failed. Please try again.' 
+        error: error.message || 'Registration failed. Please try again.' 
       }
     }
   }
@@ -101,6 +131,8 @@ export const AuthProvider = ({ children }) => {
     setUser(null)
     localStorage.removeItem('currentUser')
     localStorage.removeItem('token')
+    localStorage.removeItem('rememberMe')
+    sessionStorage.removeItem('sessionActive')
     api.setAuthToken(null)
   }
 

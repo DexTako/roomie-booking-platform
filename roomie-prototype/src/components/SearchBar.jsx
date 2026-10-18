@@ -1,7 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
-function SearchBar({ onSearch, placeholder = "Search rooms by name or location..." }) {
-  const [searchTerm, setSearchTerm] = useState('')
+function SearchBar({ onSearch, value, placeholder = "Search rooms by name, location, theme or amenities..." }) {
+  const [searchTerm, setSearchTerm] = useState(value || '')
+
+  // Stay in sync when the search is typed somewhere else (e.g. the hero search box)
+  useEffect(() => {
+    if (value !== undefined) setSearchTerm(value)
+  }, [value])
 
   const handleChange = (e) => {
     const value = e.target.value

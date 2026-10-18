@@ -997,49 +997,6 @@ function HowItWorksPage({ onBack }) {
 
 
 
-      {/* ================= FOOTER ================= */}
-      <footer className="bg-white">
-
-        <div
-          className="
-            max-w-6xl
-            mx-auto
-            px-5
-            sm:px-6
-            lg:px-8
-            py-8
-            border-t
-            border-gray-200
-            flex
-            flex-col
-            sm:flex-row
-            items-start
-            sm:items-center
-            justify-between
-            gap-4
-          "
-        >
-
-          <div>
-
-            <p className="text-lg font-bold text-gray-900">
-              Roomie
-            </p>
-
-            <p className="text-sm text-gray-500 mt-1">
-              A better way to discover your next stay.
-            </p>
-
-          </div>
-
-
-          <p className="text-xs text-gray-400">
-            © 2026 Roomie. All rights reserved.
-          </p>
-
-        </div>
-
-      </footer>
 
     </div>
   )

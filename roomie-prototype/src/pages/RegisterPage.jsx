@@ -35,28 +35,30 @@ function RegisterPage({ onBack, onSwitchToLogin, onShowToast }) {
   const validateForm = () => {
     const newErrors = {}
 
-    if (!formData.name.trim()) {
-      newErrors.name = 'Name is required'
-    } else if (formData.name.trim().length < 2) {
-      newErrors.name = 'Name must be at least 2 characters'
+    const name = formData.name.trim()
+    if (!name) {
+      newErrors.name = 'Please enter your full name.'
+    } else if (name.length < 2) {
+      newErrors.name = 'Your name is too short. Please enter at least 2 characters.'
     }
 
-    if (!formData.email) {
-      newErrors.email = 'Email is required'
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid'
+    const email = formData.email.trim()
+    if (!email) {
+      newErrors.email = 'Please enter your email address.'
+    } else if (!/^\S+@\S+\.\S+$/.test(email)) {
+      newErrors.email = 'That email doesn\'t look right. Use the format name@example.com.'
     }
 
     if (!formData.password) {
-      newErrors.password = 'Password is required'
+      newErrors.password = 'Please create a password.'
     } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters'
+      newErrors.password = `Your password is too short (${formData.password.length} of 6 characters). Please use at least 6 characters.`
     }
 
     if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Please confirm your password'
+      newErrors.confirmPassword = 'Please re-enter your password to confirm it.'
     } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match'
+      newErrors.confirmPassword = 'The two passwords don\'t match. Please type them again.'
     }
 
     setErrors(newErrors)
@@ -87,9 +89,13 @@ function RegisterPage({ onBack, onSwitchToLogin, onShowToast }) {
 
         onBack?.()
       } else {
-        setErrors({
-          general: result.error
-        })
+        const message = result.error || 'Registration failed. Please try again.'
+        // Put the problem next to the field it belongs to
+        if (/email/i.test(message) && /(exist|registered|in use)/i.test(message)) {
+          setErrors({ email: message, general: message })
+        } else {
+          setErrors({ general: message })
+        }
 
         onShowToast?.(
           result.error,

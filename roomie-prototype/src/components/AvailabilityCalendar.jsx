@@ -77,7 +77,7 @@ function AvailabilityCalendar({
     for (let i = 0; i < nights; i++) {
       if (occupied[addDaysISO(checkIn, i)]) {
         onChange?.({ checkIn: '', checkOut: '' })
-        setNotice('Those dates were just booked. Please pick new dates.')
+        setNotice(`Your dates (${formatDateLabel(checkIn)} to ${formatDateLabel(checkOut)}) were just booked by someone else. Please pick new dates.`)
         break
       }
     }
@@ -96,7 +96,7 @@ function AvailabilityCalendar({
 
   useEffect(() => {
     if (!notice) return
-    const timer = setTimeout(() => setNotice(''), 4000)
+    const timer = setTimeout(() => setNotice(''), 9000)
     return () => clearTimeout(timer)
   }, [notice])
 
@@ -115,12 +115,16 @@ function AvailabilityCalendar({
   const selectingEnd = !!checkIn && !checkOut
 
   const handleDayClick = (iso) => {
-    if (readOnly || isPast(iso)) return
+    if (readOnly) return
+    if (isPast(iso)) {
+      setNotice(`${formatDateLabel(iso)} has already passed. Please choose today or a later date.`)
+      return
+    }
 
     // Picking a check-out date
     if (selectingEnd && iso > checkIn) {
       if (maxCheckOut && iso > maxCheckOut) {
-        setNotice('Your stay can’t include nights that are already booked.')
+        setNotice(`This room is already booked from ${formatDateLabel(maxCheckOut)}, so the latest check-out for a ${formatDateLabel(checkIn)} check-in is ${formatDateLabel(maxCheckOut)}. Please choose an earlier check-out date.`)
         return
       }
       onChange?.({ checkIn, checkOut: iso })
@@ -131,8 +135,8 @@ function AvailabilityCalendar({
     // Starting (or restarting) a selection
     if (occupied[iso]) {
       setNotice(occupied[iso] === 'pending'
-        ? 'That night has a pending request.'
-        : 'That night is already booked.')
+        ? `${formatDateLabel(iso)} has a pending booking request from another guest. It may open up again if the host declines it. Pick a white (available) date instead.`
+        : `${formatDateLabel(iso)} is already booked by another guest and can't be selected. Pick a white (available) date instead.`)
       return
     }
     onChange?.({ checkIn: iso, checkOut: '' })
@@ -280,7 +284,7 @@ function AvailabilityCalendar({
 
       {/* Notice */}
       {notice && (
-        <div role="status" className="mt-4 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
+        <div role="alert" className="mt-4 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
           {notice}
         </div>
       )}

@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react'
 import StarRating from './StarRating'
 import { useAuth } from '../context/AuthContext'
 
-function ReviewsSection({ roomId, onShowToast, onNavigateToLogin }) {
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+
+function ReviewsSection({ roomId, onShowToast, onNavigateToLogin, onStatsChange }) {
   const { user } = useAuth()
   const [reviews, setReviews] = useState([])
   const [loading, setLoading] = useState(true)
@@ -28,11 +30,12 @@ function ReviewsSection({ roomId, onShowToast, onNavigateToLogin }) {
 
   const fetchReviews = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/rooms/${roomId}/reviews`)
+      const response = await fetch(`${API_URL}/rooms/${roomId}/reviews`)
       const data = await response.json()
       
       if (data.success) {
         setReviews(data.reviews || [])
+        onStatsChange?.({ average: Number(data.averageRating) || 0, count: data.count || 0 })
       }
     } catch (error) {
       console.error('Error fetching reviews:', error)
@@ -46,7 +49,7 @@ function ReviewsSection({ roomId, onShowToast, onNavigateToLogin }) {
     try {
       const token = localStorage.getItem('token')
       console.log('🔍 Checking review eligibility for room:', roomId)
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/rooms/${roomId}/can-review`, {
+      const response = await fetch(`${API_URL}/rooms/${roomId}/can-review`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -97,7 +100,7 @@ function ReviewsSection({ roomId, onShowToast, onNavigateToLogin }) {
 
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/rooms/${roomId}/reviews`, {
+      const response = await fetch(`${API_URL}/rooms/${roomId}/reviews`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -180,6 +183,40 @@ function ReviewsSection({ roomId, onShowToast, onNavigateToLogin }) {
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
+
+      {/* Write a Review button (guests who finished a stay can review) */}
+      {!showReviewForm && (
+        <div className="flex flex-col items-end mb-6">
+          {!user ? (
+            <button
+              onClick={handleWriteReview}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition-colors"
+            >
+              Sign in to write a review
+            </button>
+          ) : checkingEligibility ? (
+            <button disabled className="px-6 py-3 bg-gray-200 text-gray-500 rounded-lg cursor-wait font-semibold">
+              Checking...
+            </button>
+          ) : canReview ? (
+            <button
+              onClick={handleWriteReview}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition-colors"
+            >
+              Write a Review
+            </button>
+          ) : (
+            <>
+              <button disabled className="px-6 py-3 bg-gray-200 text-gray-500 rounded-lg cursor-not-allowed font-semibold">
+                Can't Review Yet
+              </button>
+              <p className="text-xs text-gray-500 mt-2 text-right max-w-xs">
+                {reviewEligibility || 'Finish a stay at this room to review it.'}
+              </p>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Review Form */}
       {showReviewForm && (

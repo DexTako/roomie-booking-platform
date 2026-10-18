@@ -2,6 +2,22 @@ const User = require('../models/User');
 const Booking = require('../models/Booking');
 const Room = require('../models/Room');
 
+// When a customer is banned/deactivated, cancel their pending and upcoming approved
+// bookings so hosts don't keep waiting for (or hosting) someone who can't use the site.
+const cancelUserBookings = async (userId) => {
+  const startOfToday = new Date();
+  startOfToday.setUTCHours(0, 0, 0, 0);
+  const result = await Booking.updateMany(
+    {
+      renterId: userId,
+      status: { $in: ['pending', 'approved'] },
+      checkOut: { $gte: startOfToday }
+    },
+    { $set: { status: 'cancelled' } }
+  );
+  return result.modifiedCount || 0;
+};
+
 // @desc    Get all users (Admin only)
 // @route   GET /api/admin/users
 // @access  Private (Admin only)
@@ -83,6 +99,13 @@ exports.updateUserRole = async (req, res) => {
       });
     }
 
+    if (req.params.id === req.user._id.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot change your own role'
+      });
+    }
+
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { role },
@@ -118,6 +141,19 @@ exports.updateUserStatus = async (req, res) => {
   try {
     const { isActive } = req.body;
 
+    if (typeof isActive !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        message: 'isActive must be true or false'
+      });
+    }
+    if (req.params.id === req.user._id.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot deactivate your own account'
+      });
+    }
+
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { isActive },
@@ -131,8 +167,14 @@ exports.updateUserStatus = async (req, res) => {
       });
     }
 
+    let cancelledBookings = 0;
+    if (!isActive && user.role === 'customer') {
+      cancelledBookings = await cancelUserBookings(user._id);
+    }
+
     res.status(200).json({
       success: true,
+      cancelledBookings,
       message: `User ${isActive ? 'activated' : 'deactivated'} successfully`,
       user
     });
@@ -173,9 +215,14 @@ exports.banUser = async (req, res) => {
     user.bannedBy = req.user._id;
     await user.save();
 
+    const cancelledBookings = await cancelUserBookings(user._id);
+
     res.status(200).json({
       success: true,
-      message: 'User banned successfully',
+      message: cancelledBookings > 0
+        ? `User banned and ${cancelledBookings} booking(s) cancelled`
+        : 'User banned successfully',
+      cancelledBookings,
       user
     });
   } catch (error) {

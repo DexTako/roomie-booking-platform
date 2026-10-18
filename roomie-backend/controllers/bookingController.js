@@ -22,7 +22,7 @@ const ensureBookingPrices = async (booking) => {
   }
 
   const subtotal = pricePerNight * nights;
-  const serviceFee = subtotal * 0.15;
+  const serviceFee = subtotal * 0.10; // keep in sync with SERVICE_FEE_RATE on the frontend
   const totalPrice = subtotal + serviceFee;
 
   // Update the booking object (not saved to DB, just for response)
@@ -103,8 +103,16 @@ exports.getBookingById = async (req, res) => {
     // Check authorization
     if (
       req.user.role === 'customer' &&
-      booking.renterId._id.toString() !== req.user._id.toString()
+      booking.renterId?._id?.toString() !== req.user._id.toString()
     ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to view this booking'
+      });
+    }
+
+    // Hosts may only see bookings for their own rooms
+    if (req.user.role === 'host' && booking.roomId?.hostId?.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to view this booking'
@@ -186,6 +194,16 @@ exports.createBooking = async (req, res) => {
       });
     }
 
+    // Can't book a stay that starts in the past
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    if (checkInDate < new Date(startOfToday.getTime() - 24 * 60 * 60 * 1000)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Check-in date cannot be in the past'
+      });
+    }
+
     // Check for conflicts
     const conflicts = await Booking.findConflicts(roomId, checkIn, checkOut);
     
@@ -205,7 +223,7 @@ exports.createBooking = async (req, res) => {
     const diffTime = Math.abs(checkOutDate - checkInDate);
     const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     const subtotal = room.pricePerNight * nights;
-    const serviceFee = subtotal * 0.15;
+    const serviceFee = subtotal * 0.10; // keep in sync with SERVICE_FEE_RATE on the frontend
     const totalPrice = subtotal + serviceFee;
 
     // Create booking
@@ -227,7 +245,8 @@ exports.createBooking = async (req, res) => {
       totalPrice,
       paymentMethod: paymentMethod || 'card',
       paymentDetails: paymentDetails || '',
-      paymentStatus: 'completed',
+      // Cash is paid on arrival, so it is not "completed" yet
+      paymentStatus: (paymentMethod || 'card') === 'cash' ? 'pending' : 'completed',
       status: 'pending'
     });
 
@@ -285,8 +304,46 @@ exports.updateBookingStatus = async (req, res) => {
       });
     }
 
+    // A host can only manage bookings for their own rooms
+    if (req.user.role === 'host') {
+      const room = await Room.findById(booking.roomId).select('hostId');
+      if (!room || room.hostId.toString() !== req.user._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only manage bookings for your own rooms'
+        });
+      }
+    }
+
+    // Only allow sensible status changes (e.g. no approving a cancelled booking)
+    const allowedTransitions = {
+      pending: ['approved', 'declined', 'cancelled'],
+      approved: ['completed', 'cancelled'],
+      declined: [],
+      cancelled: [],
+      completed: []
+    };
+    if (!allowedTransitions[booking.status].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `A ${booking.status} booking cannot be changed to ${status}`
+      });
+    }
+
+    // Change the status only if it is still what we just checked. If the customer
+    // cancelled a moment ago, this finds nothing and the host gets a clear message.
+    const changed = await Booking.findOneAndUpdate(
+      { _id: booking._id, status: booking.status },
+      { $set: { status } },
+      { new: true }
+    );
+    if (!changed) {
+      return res.status(409).json({
+        success: false,
+        message: 'This booking was just changed (for example the guest cancelled it). Please refresh to see the latest status.'
+      });
+    }
     booking.status = status;
-    await booking.save();
 
     res.status(200).json({
       success: true,

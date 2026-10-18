@@ -7,7 +7,6 @@ import BookingWizard from '../components/BookingWizard'
 import BookingReceipt from '../components/BookingReceipt'
 import AvailabilityCalendar from '../components/AvailabilityCalendar'
 import ReviewsSection from '../components/ReviewsSection'
-import AddReview from '../components/AddReview'
 import StarRating from '../components/StarRating'
 import Breadcrumb from '../components/Breadcrumb'
 import LoginPromptModal from '../components/LoginPromptModal'
@@ -34,7 +33,7 @@ function RoomDetailPage({ room, onBack, onNavigateToLogin, onNavigateToRegister 
   const [reviews, setReviews] = useState([])
   const [averageRating, setAverageRating] = useState(0)
   const [categoryAverages, setCategoryAverages] = useState(null)
-  const [showAddReview, setShowAddReview] = useState(false)
+  const [reviewStats, setReviewStats] = useState({ average: 0, count: 0 }) // from the backend
   const [canReview, setCanReview] = useState(false)
   const [checkingEligibility, setCheckingEligibility] = useState(true)
   const [reviewEligibility, setReviewEligibility] = useState(null)
@@ -49,11 +48,6 @@ function RoomDetailPage({ room, onBack, onNavigateToLogin, onNavigateToRegister 
     initializeReviews()
     initializeBookings()
     loadReviews()
-    if (user) {
-      checkReviewEligibility()
-    } else {
-      setCheckingEligibility(false)
-    }
   }, [room.id, user])
 
   const loadReviews = () => {
@@ -88,15 +82,6 @@ function RoomDetailPage({ room, onBack, onNavigateToLogin, onNavigateToRegister 
     } finally {
       setCheckingEligibility(false)
     }
-  }
-
-  const handleAddReview = (reviewData) => {
-    addReview(reviewData)
-    loadReviews()
-    setShowAddReview(false)
-    
-    // Show success message
-    showNotification('Review Posted!', 'Thank you for your review! It has been posted successfully.', 'success')
   }
 
   // Modal helper functions  
@@ -188,7 +173,7 @@ function RoomDetailPage({ room, onBack, onNavigateToLogin, onNavigateToRegister 
       console.error('Booking error:', error)
       showNotification(
         'Booking Failed',
-        error.response?.data?.message || 'Failed to create booking. Please try again.',
+        error.message || 'Failed to create booking. Please try again.',
         'error'
       )
     }
@@ -198,11 +183,22 @@ function RoomDetailPage({ room, onBack, onNavigateToLogin, onNavigateToRegister 
     showConfirmation(
       'Cancel Booking?',
       'Are you sure you want to cancel this booking? This action cannot be undone.',
-      () => {
-        if (bookingData?.id) cancelBooking(bookingData.id) // frees the dates on the calendar
-        setIsBooked(false)
-        setBookingData(null)
-        showNotification('Booking Cancelled', 'Your booking has been cancelled successfully.', 'info')
+      async () => {
+        try {
+          // Cancel on the server, otherwise the host can still see and approve it
+          const bookingId = bookingData?._id || bookingData?.id
+          if (bookingId) await api.cancelBooking(bookingId)
+          if (bookingData?.id) cancelBooking(bookingData.id) // local demo calendar, if it knows this booking
+          setIsBooked(false)
+          setBookingData(null)
+          showNotification('Booking Cancelled', 'Your booking has been cancelled successfully.', 'info')
+        } catch (error) {
+          showNotification(
+            'Cancellation Failed',
+            error.message || 'Could not cancel your booking. Please try again.',
+            'error'
+          )
+        }
       }
     )
   }
@@ -259,11 +255,11 @@ function RoomDetailPage({ room, onBack, onNavigateToLogin, onNavigateToRegister 
               </svg>
               Up to {room.capacity} guests
             </span>
-            {reviews.length > 0 && (
+            {reviewStats.count > 0 && (
               <span className="flex items-center gap-1">
-                <StarRating rating={parseFloat(averageRating)} readonly size="sm" />
-                <span className="font-semibold">{averageRating}</span>
-                <span className="text-gray-500">({reviews.length} {reviews.length === 1 ? 'review' : 'reviews'})</span>
+                <StarRating rating={parseFloat(reviewStats.average)} readonly size="sm" />
+                <span className="font-semibold">{Number(reviewStats.average).toFixed(1)}</span>
+                <span className="text-gray-500">({reviewStats.count} {reviewStats.count === 1 ? 'review' : 'reviews'})</span>
               </span>
             )}
             <span className="font-bold text-2xl text-blue-600">
@@ -458,66 +454,17 @@ function RoomDetailPage({ room, onBack, onNavigateToLogin, onNavigateToRegister 
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-3xl font-bold text-gray-900">
               Guest Reviews
-              {reviews.length > 0 && (
-                <span className="text-gray-500 text-2xl ml-2">({reviews.length})</span>
+              {reviewStats.count > 0 && (
+                <span className="text-gray-500 text-2xl ml-2">({reviewStats.count})</span>
               )}
             </h2>
             
-            {!showAddReview && user && (
-              checkingEligibility ? (
-                <button
-                  disabled
-                  className="px-6 py-3 bg-gray-200 text-gray-500 rounded-lg cursor-wait font-semibold flex items-center gap-2"
-                >
-                  <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Checking...
-                </button>
-              ) : canReview ? (
-                <button
-                  onClick={() => setShowAddReview(true)}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition-colors flex items-center gap-2"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Write a Review
-                </button>
-              ) : (
-                <div className="text-right">
-                  <button
-                    disabled
-                    title={reviewEligibility}
-                    className="px-6 py-3 bg-gray-200 text-gray-500 rounded-lg cursor-not-allowed font-semibold flex items-center gap-2"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
-                    </svg>
-                    Can't Review
-                  </button>
-                  <p className="text-xs text-gray-500 mt-2">
-                    {reviewEligibility || 'Complete a stay to review'}
-                  </p>
-                </div>
-              )
-            )}
           </div>
-
-          {/* Add Review Form */}
-          {showAddReview && (
-            <div className="mb-8">
-              <AddReview
-                roomId={room.id}
-                onSubmit={handleAddReview}
-                onCancel={() => setShowAddReview(false)}
-              />
-            </div>
-          )}
 
           {/* Reviews Section */}
           <ReviewsSection 
-            roomId={room.id}
+            roomId={room._id || room.id}
+            onStatsChange={setReviewStats}
             onShowToast={showNotification}
             onNavigateToLogin={onNavigateToLogin}
           />

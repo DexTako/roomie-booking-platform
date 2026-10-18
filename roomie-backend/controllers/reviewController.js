@@ -1,6 +1,18 @@
 const Review = require('../models/Review');
 const Room = require('../models/Room');
 
+// Nothing in the app ever sets a booking to 'completed', so also accept an
+// approved booking whose check-out date has passed.
+const findReviewableBooking = (Booking, roomId, userId) =>
+  Booking.findOne({
+    roomId,
+    renterId: userId,
+    $or: [
+      { status: 'completed' },
+      { status: 'approved', checkOut: { $lt: new Date() } }
+    ]
+  });
+
 // @desc    Get all reviews for a room
 // @route   GET /api/rooms/:roomId/reviews
 // @access  Public
@@ -50,11 +62,17 @@ exports.createReview = async (req, res) => {
       });
     }
 
-    if (rating < 1 || rating > 5) {
+    if (!Number.isInteger(Number(rating)) || rating < 1 || rating > 5) {
       return res.status(400).json({
         success: false,
-        message: 'Rating must be between 1 and 5'
+        message: 'Rating must be a whole number from 1 to 5'
       });
+    }
+    if (title.length > 100) {
+      return res.status(400).json({ success: false, message: 'Review title must be 100 characters or less' });
+    }
+    if (comment.length > 500) {
+      return res.status(400).json({ success: false, message: 'Review comment must be 500 characters or less' });
     }
 
     // Check if room exists
@@ -68,11 +86,7 @@ exports.createReview = async (req, res) => {
 
     // Check if user has completed a booking for this room
     const Booking = require('../models/Booking');
-    const completedBooking = await Booking.findOne({
-      roomId,
-      renterId: req.user._id,
-      status: 'completed'
-    });
+    const completedBooking = await findReviewableBooking(Booking, roomId, req.user._id);
 
     if (!completedBooking) {
       return res.status(403).json({
@@ -216,11 +230,7 @@ exports.canUserReview = async (req, res) => {
 
     // Check if user has completed a booking for this room
     const Booking = require('../models/Booking');
-    const completedBooking = await Booking.findOne({
-      roomId,
-      renterId: req.user._id,
-      status: 'completed'
-    });
+    const completedBooking = await findReviewableBooking(Booking, roomId, req.user._id);
 
     if (!completedBooking) {
       return res.status(200).json({

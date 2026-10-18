@@ -6,6 +6,9 @@ if (process.env.STRIPE_SECRET_KEY) {
 const Booking = require('../models/Booking');
 const Room = require('../models/Room');
 
+// Keep in sync with SERVICE_FEE_RATE in the frontend (utils/pricing.js)
+const SERVICE_FEE_RATE = 0.10;
+
 // @desc    Create payment intent for booking
 // @route   POST /api/payments/create-payment-intent
 // @access  Private
@@ -18,6 +21,12 @@ exports.createPaymentIntent = async (req, res) => {
       });
     }
     const { bookingData } = req.body;
+    if (!bookingData || !bookingData.roomId || !bookingData.checkIn || !bookingData.checkOut || !bookingData.guests) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide the room, dates and number of guests'
+      });
+    }
     const { roomId, checkIn, checkOut, guests } = bookingData;
 
     // Get room details for pricing
@@ -29,13 +38,30 @@ exports.createPaymentIntent = async (req, res) => {
       });
     }
 
+    if (!room.isActive || !room.isAvailable) {
+      return res.status(400).json({ success: false, message: 'Room is not available for booking' });
+    }
+    if (guests > room.capacity) {
+      return res.status(400).json({ success: false, message: `Room capacity is ${room.capacity} guests` });
+    }
+
     // Calculate pricing
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
+    if (checkOutDate <= checkInDate) {
+      return res.status(400).json({ success: false, message: 'Check-out date must be after check-in date' });
+    }
+
+    // Don't take money for dates that are already taken
+    const conflicts = await Booking.findConflicts(roomId, checkIn, checkOut);
+    if (conflicts.length > 0) {
+      return res.status(400).json({ success: false, message: 'Room is not available for these dates' });
+    }
+
     const diffTime = Math.abs(checkOutDate - checkInDate);
     const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     const subtotal = room.pricePerNight * nights;
-    const serviceFee = subtotal * 0.15;
+    const serviceFee = Math.round(subtotal * SERVICE_FEE_RATE * 100) / 100;
     const totalPrice = subtotal + serviceFee;
 
     // Create payment intent
@@ -86,7 +112,12 @@ exports.confirmPayment = async (req, res) => {
         message: 'Stripe payment system is not configured. Please use alternative payment methods.'
       });
     }
-    const { paymentIntentId, bookingData } = req.body;
+    const { paymentIntentId } = req.body;
+    const bookingData = req.body.bookingData || {};
+
+    if (!paymentIntentId) {
+      return res.status(400).json({ success: false, message: 'Payment reference is missing' });
+    }
 
     // Retrieve payment intent from Stripe
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
@@ -98,9 +129,22 @@ exports.confirmPayment = async (req, res) => {
       });
     }
 
-    // Extract booking data from payment metadata
+    // The payment must belong to the person confirming it
     const metadata = paymentIntent.metadata;
+    if (metadata.userId !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'This payment does not belong to your account' });
+    }
+
+    // One payment = one booking (a repeated confirm returns the same booking)
+    const existing = await Booking.findOne({ paymentIntentId });
+    if (existing) {
+      return res.status(200).json({ success: true, message: 'Booking already created', booking: existing });
+    }
+
     const room = await Room.findById(metadata.roomId);
+    if (!room) {
+      return res.status(404).json({ success: false, message: 'Room not found' });
+    }
 
     // Create booking with payment information
     const booking = await Booking.create({
@@ -116,8 +160,8 @@ exports.confirmPayment = async (req, res) => {
       specialRequests: bookingData.specialRequests || '',
       pricePerNight: room.pricePerNight,
       nights: parseInt(metadata.nights),
-      subtotal: paymentIntent.amount / 100 / 1.15, // Remove service fee
-      serviceFee: (paymentIntent.amount / 100) * 0.15 / 1.15,
+      subtotal: Math.round((paymentIntent.amount / 100 / (1 + SERVICE_FEE_RATE)) * 100) / 100,
+      serviceFee: Math.round((paymentIntent.amount / 100 - paymentIntent.amount / 100 / (1 + SERVICE_FEE_RATE)) * 100) / 100,
       totalPrice: paymentIntent.amount / 100,
       paymentMethod: 'card',
       paymentIntentId: paymentIntentId,

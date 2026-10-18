@@ -40,49 +40,63 @@ function BookingReceipt({ booking, room, onClose }) {
   console.log('💰 Final prices to display:', prices)
 
   const handlePrint = () => {
-    // Create a new window with just the receipt content
-    const printWindow = window.open('', '_blank')
+    // Print ONLY the receipt in its own window (printing the whole page is what made
+    // the old "Save as PDF" come out as 4 pages: the room page behind the popup was printed too).
     const receiptContent = document.getElementById(receiptId)
-    
-    if (printWindow && receiptContent) {
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Receipt - ${booking._id?.slice(-8).toUpperCase() || 'BOOKING'}</title>
-            <style>
-              * {
-                margin: 0;
-                padding: 0;
-                box-sizing: border-box;
-              }
-              body {
-                font-family: system-ui, -apple-system, sans-serif;
-                padding: 20px;
-                background: white;
-              }
-              @media print {
-                @page {
-                  margin: 1cm;
-                }
-              }
-            </style>
-            <style>
-              ${getComputedStyles()}
-            </style>
-          </head>
-          <body>
-            ${receiptContent.innerHTML}
-          </body>
-        </html>
-      `)
-      printWindow.document.close()
-      printWindow.focus()
-      setTimeout(() => {
-        printWindow.print()
-        printWindow.close()
-      }, 250)
-    }
+    const printWindow = window.open('', '_blank')
+    if (!printWindow || !receiptContent) return
+
+    // Reuse the site's real stylesheets so the receipt looks exactly like on screen
+    const siteStyles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+      .map(node => node.outerHTML)
+      .join('\n')
+
+    printWindow.document.write(`<!DOCTYPE html>
+      <html>
+        <head>
+          <base href="${window.location.origin}/">
+          <title>Receipt - ${booking._id?.slice(-8).toUpperCase() || 'BOOKING'}</title>
+          ${siteStyles}
+          <style>${getComputedStyles()}</style>
+          <style>
+            @page { margin: 8mm; }
+            * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            /* The site stylesheet sets min-height: 100vh on the body, which forces an extra page */
+            html, body { height: auto !important; min-height: 0 !important; margin: 0; background: white; }
+            body { font-family: system-ui, -apple-system, sans-serif; padding: 0; }
+            .receipt-print-root { max-width: 720px; margin: 0 auto; }
+            .no-print { display: none !important; }
+            /* Compact layout so the whole receipt fits on one page */
+            .receipt-print-root .space-y-6 > * + * { margin-top: 0.6rem !important; }
+            .receipt-print-root .space-y-3 > * + * { margin-top: 0.35rem !important; }
+            .receipt-print-root .space-y-2 > * + * { margin-top: 0.2rem !important; }
+            .receipt-print-root .p-6 { padding: 0.75rem !important; }
+            .receipt-print-root .p-4 { padding: 0.5rem 0.75rem !important; }
+            .receipt-print-root .pt-6 { padding-top: 0.5rem !important; }
+            .receipt-print-root h3 { font-size: 0.95rem !important; margin-bottom: 0.3rem !important; }
+            .receipt-print-root h3 span { font-size: 0.95rem !important; }
+            .receipt-print-root .text-sm, .receipt-print-root .text-base { font-size: 0.8rem !important; }
+          </style>
+        </head>
+        <body>
+          <div class="receipt-print-root">${receiptContent.innerHTML}</div>
+        </body>
+      </html>`)
+    printWindow.document.close()
+    printWindow.focus()
+
+    // Give the stylesheets a moment to load, then open the print dialog
+    // (choose "Save as PDF" as the destination to get a PDF file)
+    printWindow.onafterprint = () => printWindow.close()
+    setTimeout(() => {
+      // Shrink to fit one page if it is still too tall (works for A4 and Letter paper)
+      const root = printWindow.document.querySelector('.receipt-print-root')
+      const maxHeight = 960 // px of usable page height after margins, safe for A4 and Letter
+      if (root && root.scrollHeight > maxHeight) {
+        root.style.zoom = String(Math.max(0.55, maxHeight / root.scrollHeight))
+      }
+      printWindow.print()
+    }, 700)
   }
 
   const getComputedStyles = () => {
@@ -156,10 +170,8 @@ function BookingReceipt({ booking, room, onClose }) {
     `
   }
 
-  const handleDownloadPDF = async () => {
-    // Use browser's print to PDF functionality
-    window.print()
-  }
+  // "Save as PDF" uses the same single-page receipt; pick "Save as PDF" in the print dialog
+  const handleDownloadPDF = () => handlePrint()
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {

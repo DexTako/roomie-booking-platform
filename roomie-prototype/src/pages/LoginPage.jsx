@@ -13,6 +13,7 @@ function LoginPage({ onBack, onSwitchToRegister, onShowToast }) {
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false)
 
   const handleChange = (e) => {
@@ -59,7 +60,7 @@ function LoginPage({ onBack, onSwitchToRegister, onShowToast }) {
     setIsLoading(true)
 
     try {
-      const result = await login(formData.email, formData.password)
+      const result = await login(formData.email, formData.password, rememberMe)
 
       if (result.success) {
         onShowToast?.(
@@ -305,7 +306,7 @@ function LoginPage({ onBack, onSwitchToRegister, onShowToast }) {
 
     {/* Footer */}
     <p className="text-xs text-white/50">
-      © 2026 Roomie. All rights reserved.
+      © {new Date().getFullYear()} Roomie. All rights reserved.
     </p>
 
   </div>
@@ -578,6 +579,8 @@ function LoginPage({ onBack, onSwitchToRegister, onShowToast }) {
                   <input
                     id="remember"
                     type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
                     className="w-4 h-4 text-slate-900 border-gray-300 rounded focus:ring-slate-900"
                   />
 

@@ -4,7 +4,8 @@ import AvailabilityCalendar from './AvailabilityCalendar'
 import PaymentStep from './PaymentStep'
 import { EMPTY_PAYMENT, validatePayment, paymentDetailsLabel } from '../utils/payment'
 import { findNextAvailableRange, isRangeAvailable } from '../data/bookings'
-import { calculateStayPrice, formatDateLabel } from '../utils/pricing'
+import api from '../services/api'
+import { calculateStayPrice, formatDateLabel, todayISO, toISODate } from '../utils/pricing'
 
 function BookingWizard({ room, onClose, onComplete, initialDates }) {
   const { user } = useAuth()
@@ -37,7 +38,27 @@ function BookingWizard({ room, onClose, onComplete, initialDates }) {
     bookingData.checkOut
   )
 
-  const handleNext = () => {
+  const [isCheckingDates, setIsCheckingDates] = useState(false)
+
+  const handleNext = async () => {
+    if (currentStep === 1) {
+      // Ask the server now, instead of letting the guest fill in everything
+      // and only find out at the payment step that the dates are taken.
+      setIsCheckingDates(true)
+      setDateNotice('')
+      try {
+        const res = await api.rooms.checkAvailability(room.id || room._id, bookingData.checkIn, bookingData.checkOut)
+        if (res.available === false) {
+          setDateNotice('These dates are not available. Please pick different dates.')
+          return
+        }
+      } catch (error) {
+        setDateNotice(error.message)
+        return
+      } finally {
+        setIsCheckingDates(false)
+      }
+    }
     if (currentStep < 3) setCurrentStep(currentStep + 1)
   }
 
@@ -149,7 +170,7 @@ function BookingWizard({ room, onClose, onComplete, initialDates }) {
                     type="date"
                     value={bookingData.checkIn}
                     onChange={(e) => setBookingData({ ...bookingData, checkIn: e.target.value })}
-                    min={new Date().toISOString().split('T')[0]}
+                    min={todayISO()}
                     className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none"
                   />
                 </div>
@@ -162,11 +183,17 @@ function BookingWizard({ room, onClose, onComplete, initialDates }) {
                     type="date"
                     value={bookingData.checkOut}
                     onChange={(e) => setBookingData({ ...bookingData, checkOut: e.target.value })}
-                    min={bookingData.checkIn || new Date().toISOString().split('T')[0]}
+                    min={bookingData.checkIn || todayISO()}
                     className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none"
                   />
                 </div>
               </div>
+
+              {dateNotice && (
+                <div className="p-4 bg-red-50 rounded-xl border-2 border-red-200 text-sm text-red-700">
+                  {dateNotice}
+                </div>
+              )}
 
               {nights > 0 && (
                 <div className="p-4 bg-blue-50 rounded-xl border-2 border-blue-200">
@@ -209,8 +236,8 @@ function BookingWizard({ room, onClose, onComplete, initialDates }) {
                         
                         setBookingData({
                           ...bookingData,
-                          checkIn: checkIn.toISOString().split('T')[0],
-                          checkOut: checkOut.toISOString().split('T')[0]
+                          checkIn: toISODate(checkIn),
+                          checkOut: toISODate(checkOut)
                         })
                       }}
                       className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"
@@ -363,14 +390,14 @@ function BookingWizard({ room, onClose, onComplete, initialDates }) {
 
               <button
                 onClick={handleNext}
-                disabled={!isStepValid()}
+                disabled={!isStepValid() || isCheckingDates}
                 className={`px-8 py-3 rounded-xl font-semibold transition-all ${
                   isStepValid()
                     ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl'
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >
-                {currentStep === 2 ? 'Continue to Payment' : 'Continue'}
+                {isCheckingDates ? 'Checking dates...' : currentStep === 2 ? 'Continue to Payment' : 'Continue'}
               </button>
             </>
           ) : (

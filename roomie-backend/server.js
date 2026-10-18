@@ -56,6 +56,8 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+// Stripe signs the RAW body, so the webhook must be read before express.json()
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -77,6 +79,8 @@ app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api', require('./routes/reviews'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/payments', require('./routes/payments'));
+app.use('/api/messages', require('./routes/messages'));
+app.use('/api/contact', require('./routes/contact'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {

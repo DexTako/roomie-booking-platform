@@ -17,6 +17,7 @@ import Navbar from './components/Navbar'
 import StaffHeader from './components/StaffHeader'
 import LoadingScreen from './components/LoadingScreen'
 import Toast from './components/Toast'
+import Footer from './components/Footer'
 import api from './services/api'
 import { useAuth } from './context/AuthContext'
 import { useComparison } from './context/ComparisonContext'
@@ -379,31 +380,13 @@ function App() {
       )}
 
 
-      {/* FOOTER */}
-      {!isStaff && ![
-        'login',
-        'register',
-        'howItWorks',
-        'contact',
-        'notFound'
-      ].includes(currentView) && (
-
-        <footer className="mt-16 bg-gray-800 text-white py-8">
-
-          <div className="container mx-auto px-4 text-center">
-
-            <p className="text-gray-400">
-              © 2024 Roomie - Immersive Room Booking Platform
-            </p>
-
-            <p className="text-sm text-gray-500 mt-2">
-              Advanced Web Application Project - IT 305W
-            </p>
-
-          </div>
-
-        </footer>
-
+      {/* FOOTER - same on every page (login/register have their own compact one) */}
+      {!isStaff && !['login', 'register'].includes(currentView) && (
+        <Footer
+          onNavigateToHome={handleBackToHome}
+          onNavigateToHowItWorks={handleNavigateToHowItWorks}
+          onNavigateToContact={handleNavigateToContact}
+        />
       )}
 
     </div>

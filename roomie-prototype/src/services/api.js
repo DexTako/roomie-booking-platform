@@ -33,23 +33,42 @@ const apiRequest = async (endpoint, options = {}) => {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  let response;
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers,
     });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || 'API request failed');
-    }
-
-    return data;
-  } catch (error) {
-    console.error(`API Error [${endpoint}]:`, error);
+  } catch (networkError) {
+    // fetch only rejects when the server could not be reached at all
+    console.error(`Network error [${endpoint}]:`, networkError);
+    const error = new Error(
+      "Can't reach the server. Check your internet connection and try again."
+    );
+    error.isNetworkError = true;
     throw error;
   }
+
+  // The server may answer with something that is not JSON (e.g. a gateway error page)
+  let data = null;
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+
+  if (!response.ok) {
+    const fallback =
+      response.status >= 500
+        ? 'Something went wrong on our side. Please try again in a moment.'
+        : 'Your request could not be completed. Please try again.';
+    const error = new Error((data && data.message) || fallback);
+    error.status = response.status;
+    console.error(`API Error [${endpoint}]:`, error.message);
+    throw error;
+  }
+
+  return data;
 };
 
 // ==================== AUTH API ====================
@@ -64,10 +83,10 @@ export const authAPI = {
   },
 
   // Login user
-  login: async (email, password) => {
+  login: async (email, password, rememberMe = false) => {
     return apiRequest('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, rememberMe }),
     });
   },
 
@@ -185,6 +204,36 @@ export const bookingsAPI = {
   },
 };
 
+// ==================== MESSAGES API ====================
+
+export const messagesAPI = {
+  // All messages of one booking (also marks the ones sent to me as read)
+  getThread: async (bookingId) => apiRequest(`/messages/booking/${bookingId}`),
+
+  // Send a message about a booking (customer -> host, host -> customer)
+  send: async (bookingId, text) =>
+    apiRequest(`/messages/booking/${bookingId}`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }),
+
+  // Unread counts per booking: { total, byBooking: { [bookingId]: n } }
+  getUnread: async () => apiRequest('/messages/unread'),
+};
+
+// ==================== CONTACT API ====================
+
+export const contactAPI = {
+  // Public: send a message from the Contact page
+  send: async (data) =>
+    apiRequest('/contact', { method: 'POST', body: JSON.stringify(data) }),
+
+  // Admin: read the inbox and change a message's status
+  list: async () => apiRequest('/admin/contact-messages'),
+  setStatus: async (id, status) =>
+    apiRequest(`/admin/contact-messages/${id}`, { method: 'PUT', body: JSON.stringify({ status }) }),
+};
+
 // ==================== HELPER FUNCTIONS ====================
 
 // Store auth token after login
@@ -219,13 +268,15 @@ export default {
   auth: authAPI,
   rooms: roomsAPI,
   bookings: bookingsAPI,
+  messages: messagesAPI,
+  contact: contactAPI,
   storeAuthToken,
   clearAuthToken,
   isAuthenticated,
   setAuthToken,
 
   // flat helpers used by AuthContext and the pages
-  login: (email, password) => authAPI.login(email, password),
+  login: (email, password, rememberMe) => authAPI.login(email, password, rememberMe),
   register: (userData) => authAPI.register(userData),
   getAllRooms: async (filters) => unwrap(await roomsAPI.getAll(filters), 'rooms'),
   getRoomById: async (id) => unwrap(await roomsAPI.getById(id), 'room'),

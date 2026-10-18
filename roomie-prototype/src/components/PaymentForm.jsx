@@ -157,7 +157,7 @@ function PaymentFormContent({ bookingData, onSuccess, onCancel, onError }) {
             <span>${paymentBreakdown.subtotal.toFixed(2)}</span>
           </div>
           <div className="flex justify-between">
-            <span>Service fee (15%):</span>
+            <span>Service fee (10%):</span>
             <span>${paymentBreakdown.serviceFee.toFixed(2)}</span>
           </div>
           <div className="border-t pt-2 flex justify-between font-semibold text-lg">

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import Breadcrumb from '../components/Breadcrumb'
+import Avatar from '../components/Avatar'
+import { normalizeImageUrl, canLoadImage } from '../utils/imageUrl'
 
 function MyProfilePage({ onBack, onShowToast }) {
   const { user, updateProfile } = useAuth()
@@ -20,20 +22,41 @@ function MyProfilePage({ onBack, onShowToast }) {
     })
   }
 
+  const [isSaving, setIsSaving] = useState(false)
+
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setIsSaving(true)
     try {
-      const result = await updateProfile(formData)
-      
+      // Convert share links (Google Drive, Dropbox, Imgur page) to direct image URLs
+      const picture = normalizeImageUrl(formData.profilePicture)
+
+      // Only save a picture link that really loads as an image
+      if (picture && picture !== user?.profilePicture) {
+        const ok = await canLoadImage(picture)
+        if (!ok) {
+          onShowToast(
+            "That link doesn't open as an image. Use a direct image link (ending in .jpg/.png) or make sure the image is public.",
+            'error'
+          )
+          return
+        }
+      }
+
+      const result = await updateProfile({ ...formData, profilePicture: picture })
+
       if (result.success) {
+        setFormData(prev => ({ ...prev, profilePicture: result.user.profilePicture || '' }))
         setIsEditing(false)
         onShowToast('Profile updated successfully!', 'success')
       } else {
-        onShowToast('Failed to update profile', 'error')
+        onShowToast(result.error || 'Failed to update profile', 'error')
       }
     } catch (error) {
       console.error('Profile update error:', error)
-      onShowToast('Failed to update profile', 'error')
+      onShowToast(error.message || 'Failed to update profile', 'error')
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -74,22 +97,12 @@ function MyProfilePage({ onBack, onShowToast }) {
           <div className="px-4 md:px-8 pb-6 md:pb-8">
             <div className="flex flex-col sm:flex-row sm:items-end justify-between -mt-12 md:-mt-16 mb-4 md:mb-6 gap-4">
               <div className="flex flex-col sm:flex-row items-center sm:items-end gap-3 md:gap-4">
-                <div className="w-24 h-24 md:w-32 md:h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center border-4 border-white shadow-lg flex-shrink-0 overflow-hidden">
-                  {user?.profilePicture ? (
-                    <img 
-                      src={user.profilePicture} 
-                      alt={user.name} 
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.style.display = 'none'
-                        e.target.nextSibling.style.display = 'flex'
-                      }}
-                    />
-                  ) : null}
-                  <span className={`text-white font-bold text-3xl md:text-4xl ${user?.profilePicture ? 'hidden' : ''}`}>
-                    {user?.name?.charAt(0).toUpperCase()}
-                  </span>
-                </div>
+                <Avatar
+                  src={user?.profilePicture}
+                  name={user?.name}
+                  className="w-24 h-24 md:w-32 md:h-32 bg-gradient-to-br from-blue-500 to-purple-600 text-white border-4 border-white shadow-lg"
+                  textClassName="text-3xl md:text-4xl"
+                />
                 <div className="text-center sm:text-left pb-1 md:pb-2">
                   <h2 className="text-xl md:text-2xl font-bold text-gray-900">{user?.name}</h2>
                   <p className="text-sm md:text-base text-gray-600 capitalize flex items-center justify-center sm:justify-start gap-2 flex-wrap">
@@ -131,15 +144,11 @@ function MyProfilePage({ onBack, onShowToast }) {
                   <p className="text-xs text-gray-500 mt-1">Enter a URL to your profile picture (e.g., from Imgur, Gravatar, etc.)</p>
                   {formData.profilePicture && (
                     <div className="mt-2">
-                      <img 
-                        src={formData.profilePicture} 
-                        alt="Preview" 
-                        className="w-20 h-20 rounded-full object-cover border-2 border-gray-300"
-                        onError={(e) => {
-                          e.target.src = ''
-                          e.target.alt = 'Invalid image URL'
-                          e.target.className = 'hidden'
-                        }}
+                      <Avatar
+                        src={normalizeImageUrl(formData.profilePicture)}
+                        name="?"
+                        className="w-20 h-20 border-2 border-gray-300 bg-gray-100 text-gray-400"
+                        textClassName="text-2xl"
                       />
                     </div>
                   )}
@@ -229,9 +238,10 @@ function MyProfilePage({ onBack, onShowToast }) {
                 <div className="flex flex-col sm:flex-row gap-3 pt-4">
                   <button
                     type="submit"
-                    className="flex-1 px-4 md:px-6 py-2 md:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm md:text-base"
+                    disabled={isSaving}
+                    className="flex-1 px-4 md:px-6 py-2 md:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm md:text-base disabled:opacity-60"
                   >
-                    Save Changes
+                    {isSaving ? 'Saving...' : 'Save Changes'}
                   </button>
                   <button
                     type="button"

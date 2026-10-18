@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { countNights, formatDateLabel, formatMoney } from '../utils/pricing'
 
-function BookingRequestCard({ booking, onApprove, onDecline }) {
+function BookingRequestCard({ booking, onApprove, onDecline, onMessage, unreadCount = 0 }) {
   const [isProcessing, setIsProcessing] = useState(false)
 
   const formatDate = (dateString) => formatDateLabel(dateString)
@@ -204,6 +204,21 @@ function BookingRequestCard({ booking, onApprove, onDecline }) {
             )}
           </button>
         </div>
+      )}
+
+      {/* Message the guest */}
+      {onMessage && booking.status !== 'cancelled' && (
+        <button
+          onClick={() => onMessage(booking)}
+          className="relative mt-3 w-full py-2 px-4 rounded-lg border border-blue-200 text-blue-600 font-medium hover:bg-blue-50 transition-colors"
+        >
+          💬 Message guest
+          {unreadCount > 0 && (
+            <span className="ml-2 inline-flex items-center justify-center bg-red-500 text-white text-xs rounded-full min-w-[20px] h-5 px-1">
+              {unreadCount}
+            </span>
+          )}
+        </button>
       )}
 
       {/* Timestamp */}

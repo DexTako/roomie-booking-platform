@@ -71,7 +71,9 @@ function HomePage({
       filtered = filtered.filter(room =>
         room.name.toLowerCase().includes(search) ||
         room.location.toLowerCase().includes(search) ||
-        room.description.toLowerCase().includes(search)
+        room.description.toLowerCase().includes(search) ||
+        String(room.theme || '').toLowerCase().includes(search) ||
+        (room.amenities || []).some(a => String(a).toLowerCase().includes(search))
       )
     }
 
@@ -823,6 +825,11 @@ function HomePage({
 
                   <input
                     type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') scrollToSection('rooms')
+                    }}
                     placeholder="Search by location, theme, or amenities..."
                     className="
                       flex-1
@@ -1242,7 +1249,7 @@ function HomePage({
 
           {/* Search Bar */}
           <div className="mb-8">
-            <SearchBar onSearch={setSearchTerm} />
+            <SearchBar value={searchTerm} onSearch={setSearchTerm} />
           </div>
 
           {/* Advanced Filters */}

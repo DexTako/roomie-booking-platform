@@ -6,8 +6,13 @@ import StarRating from './StarRating'
 function RoomCard({ room, onSelect, onShowToast }) {
   const { toggleWishlist, isInWishlist } = useWishlist()
   const { addToComparison, removeFromComparison, isInComparison } = useComparison()
-  const averageRating = calculateAverageRating(room.id)
-  const reviewCount = getReviewsByRoom(room.id).length
+  // Use the real rating from the backend when it is available (rooms from the API),
+  // and only fall back to the old local demo data otherwise.
+  const hasServerRating = room.reviewCount !== undefined
+  const averageRating = hasServerRating
+    ? Number(room.averageRating || 0).toFixed(1)
+    : calculateAverageRating(room.id)
+  const reviewCount = hasServerRating ? room.reviewCount : getReviewsByRoom(room.id).length
   const isFavorite = isInWishlist(room.id)
   const isComparing = isInComparison(room.id)
 

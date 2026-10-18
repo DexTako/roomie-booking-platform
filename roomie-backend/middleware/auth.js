@@ -32,6 +32,14 @@ exports.protect = async (req, res, next) => {
       });
     }
 
+    // A banned/deactivated user must not keep using an old token
+    if (req.user.isActive === false) {
+      return res.status(401).json({
+        success: false,
+        message: 'This account has been deactivated. Please contact support.'
+      });
+    }
+
     next();
   } catch (error) {
     return res.status(401).json({

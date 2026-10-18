@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import BookingRequestCard from '../components/BookingRequestCard'
 import AvailabilityCalendar from '../components/AvailabilityCalendar'
+import BookingMessagesModal from '../components/BookingMessagesModal'
 import api from '../services/api'
 import {
   countNights,
@@ -28,6 +29,23 @@ function HostDashboard() {
   const [showNotesModal, setShowNotesModal] = useState(false)
   const [currentBookingId, setCurrentBookingId] = useState(null)
   const [calendarRoomId, setCalendarRoomId] = useState(null)
+  const [messageBooking, setMessageBooking] = useState(null)
+  const [unreadByBooking, setUnreadByBooking] = useState({})
+
+  const loadUnread = async () => {
+    try {
+      const res = await api.messages.getUnread()
+      setUnreadByBooking(res.byBooking || {})
+    } catch {
+      // badges are optional
+    }
+  }
+
+  useEffect(() => {
+    loadUnread()
+    const timer = setInterval(loadUnread, 30000)
+    return () => clearInterval(timer)
+  }, [])
 
   // Fetch rooms on mount
   useEffect(() => {
@@ -52,10 +70,13 @@ function HostDashboard() {
   // Load bookings from backend
   useEffect(() => {
     loadBookings()
+    // Pick up cancellations/new requests without a manual refresh
+    const timer = setInterval(() => loadBookings(true), 30000)
+    return () => clearInterval(timer)
   }, [])
 
-  const loadBookings = async () => {
-    setIsLoadingBookings(true)
+  const loadBookings = async (silent = false) => {
+    if (!silent) setIsLoadingBookings(true)
     try {
       const response = await api.bookings.getAll()
       // Backend returns { success: true, bookings: [...] }
@@ -106,7 +127,8 @@ function HostDashboard() {
       showNotificationMessage('Booking approved successfully! ✓')
     } catch (error) {
       console.error('Failed to approve booking:', error)
-      showNotificationMessage('Failed to approve booking')
+      showNotificationMessage(error.message || 'Failed to approve booking')
+      loadBookings(true) // show the latest status (e.g. the guest cancelled)
     }
   }
 
@@ -117,7 +139,8 @@ function HostDashboard() {
       showNotificationMessage('Booking declined.')
     } catch (error) {
       console.error('Failed to decline booking:', error)
-      showNotificationMessage('Failed to decline booking')
+      showNotificationMessage(error.message || 'Failed to decline booking')
+      loadBookings(true)
     }
   }
 
@@ -416,6 +439,8 @@ function HostDashboard() {
                   booking={booking}
                   onApprove={handleApprove}
                   onDecline={handleDecline}
+                  onMessage={setMessageBooking}
+                  unreadCount={unreadByBooking[booking.id] || 0}
                 />
                 {/* Guest Notes Button */}
                 <button
@@ -516,6 +541,19 @@ function HostDashboard() {
           </div>
         )}
       </div>
+
+      {/* Messages with the guest */}
+      {messageBooking && (
+        <BookingMessagesModal
+          bookingId={messageBooking._id || messageBooking.id}
+          title={`Message ${messageBooking.renterName || 'guest'}`}
+          subtitle={`${messageBooking.roomName} · ${formatDateLabel(messageBooking.checkIn)} → ${formatDateLabel(messageBooking.checkOut)}`}
+          onClose={() => {
+            setMessageBooking(null)
+            loadUnread()
+          }}
+        />
+      )}
     </div>
   )
 }
