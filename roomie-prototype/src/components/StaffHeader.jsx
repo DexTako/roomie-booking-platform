@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import LogoutConfirmModal from './LogoutConfirmModal'
+import ChangePasswordModal from './ChangePasswordModal'
 
 // Minimal header for the host and admin accounts.
 // They only get their dashboard, so there is no browsing, booking,
 // wishlist or compare navigation here — just who is signed in and logout.
-function StaffHeader({ onLoggedOut }) {
+function StaffHeader({ onLoggedOut, onShowToast }) {
   const { user, logout } = useAuth()
   const [showLogoutModal, setShowLogoutModal] = useState(false)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
 
   if (!user) return null
 
@@ -36,6 +38,13 @@ function StaffHeader({ onLoggedOut }) {
             </span>
             <button
               type="button"
+              onClick={() => setShowPasswordModal(true)}
+              className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              Change password
+            </button>
+            <button
+              type="button"
               onClick={() => setShowLogoutModal(true)}
               className="flex items-center gap-1.5 text-sm font-medium text-red-600 hover:text-red-700 transition-colors"
               title="Logout"
@@ -49,6 +58,10 @@ function StaffHeader({ onLoggedOut }) {
 
         </div>
       </header>
+
+      {showPasswordModal && (
+        <ChangePasswordModal onClose={() => setShowPasswordModal(false)} onShowToast={onShowToast} />
+      )}
 
       {showLogoutModal && (
         <LogoutConfirmModal

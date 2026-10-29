@@ -1,6 +1,7 @@
 const Room = require('../models/Room');
 const Booking = require('../models/Booking');
 const Review = require('../models/Review');
+const { refundPayPalBooking } = require('./paypalController');
 
 // @desc    Get all rooms
 // @route   GET /api/rooms
@@ -137,8 +138,9 @@ exports.checkAvailability = async (req, res) => {
 // @access  Private (Host/Admin only)
 exports.createRoom = async (req, res) => {
   try {
-    // Set host ID from authenticated user
+    // Set host ID from authenticated user (a client can't choose it, or approve itself)
     req.body.hostId = req.user._id;
+    delete req.body._id;
 
     const room = await Room.create(req.body);
 
@@ -149,6 +151,12 @@ exports.createRoom = async (req, res) => {
     });
   } catch (error) {
     console.error('Create room error:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: Object.values(error.errors).map(e => e.message).join(' ')
+      });
+    }
     res.status(500).json({
       success: false,
       message: 'Error creating room',
@@ -179,6 +187,10 @@ exports.updateRoom = async (req, res) => {
       });
     }
 
+    // A room can't be handed to another host (or have its id changed) through an edit
+    delete req.body._id;
+    delete req.body.hostId;
+
     room = await Room.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true
@@ -191,6 +203,12 @@ exports.updateRoom = async (req, res) => {
     });
   } catch (error) {
     console.error('Update room error:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: Object.values(error.errors).map(e => e.message).join(' ')
+      });
+    }
     res.status(500).json({
       success: false,
       message: 'Error updating room',
@@ -219,6 +237,29 @@ exports.deleteRoom = async (req, res) => {
         success: false,
         message: 'Not authorized to delete this room'
       });
+    }
+
+    // Don't remove a room that still has confirmed guests coming
+    const startOfToday = new Date();
+    startOfToday.setUTCHours(0, 0, 0, 0);
+    const upcomingApproved = await Booking.countDocuments({
+      roomId: room._id,
+      status: 'approved',
+      checkOut: { $gte: startOfToday }
+    });
+    if (upcomingApproved > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `This room has ${upcomingApproved} upcoming approved booking(s). Cancel or complete them before deleting the room.`
+      });
+    }
+
+    // Pending requests for a room that no longer exists can never be approved, so close them
+    const pendingFilter = { roomId: room._id, status: 'pending' };
+    const pendingBookings = await Booking.find(pendingFilter);
+    await Booking.updateMany(pendingFilter, { $set: { status: 'cancelled' } });
+    for (const pending of pendingBookings) {
+      await refundPayPalBooking(pending); // PayPal-paid guests get their money back
     }
 
     // Soft delete: set isActive to false instead of deleting

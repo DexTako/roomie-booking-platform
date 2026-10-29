@@ -17,6 +17,7 @@ export const EMPTY_PAYMENT = {
   expiry: '',
   cvc: '',
   gcashNumber: '',
+  gcashReference: '',
   paypalEmail: ''
 }
 
@@ -76,10 +77,12 @@ export const validatePayment = (method, p) => {
     if (!/^\d{3,4}$/.test(p.cvc)) errors.cvc = '3 or 4 digits'
   }
   if (method === 'gcash') {
-    if (!/^09\d{9}$/.test(digitsOnly(p.gcashNumber))) errors.gcashNumber = 'Enter an 11-digit number starting with 09'
-  }
-  if (method === 'paypal') {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.paypalEmail.trim())) errors.paypalEmail = 'Enter a valid PayPal email'
+    const ref = digitsOnly(p.gcashReference)
+    if (ref.length === 0) {
+      errors.gcashReference = 'Enter the reference number from your GCash receipt after you send the payment.'
+    } else if (ref.length < 10 || ref.length > 15) {
+      errors.gcashReference = `A GCash reference number has about 13 digits (you typed ${ref.length}). Please check your receipt.`
+    }
   }
   return errors
 }
@@ -91,8 +94,7 @@ export const paymentDetailsLabel = (method, p) => {
     return `${cardBrand(num)} •••• ${num.slice(-4)}`
   }
   if (method === 'gcash') {
-    const d = digitsOnly(p.gcashNumber)
-    return `GCash ${d.slice(0, 4)}•••${d.slice(-2)}`
+    return `GCash ref ${digitsOnly(p.gcashReference)}`
   }
   if (method === 'paypal') {
     const [name, domain] = p.paypalEmail.trim().split('@')

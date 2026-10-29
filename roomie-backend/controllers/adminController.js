@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Booking = require('../models/Booking');
+const { refundPayPalBooking } = require('./paypalController');
 const Room = require('../models/Room');
 
 // When a customer is banned/deactivated, cancel their pending and upcoming approved
@@ -7,14 +8,19 @@ const Room = require('../models/Room');
 const cancelUserBookings = async (userId) => {
   const startOfToday = new Date();
   startOfToday.setUTCHours(0, 0, 0, 0);
-  const result = await Booking.updateMany(
-    {
-      renterId: userId,
-      status: { $in: ['pending', 'approved'] },
-      checkOut: { $gte: startOfToday }
-    },
-    { $set: { status: 'cancelled' } }
-  );
+  const filter = {
+    renterId: userId,
+    status: { $in: ['pending', 'approved'] },
+    checkOut: { $gte: startOfToday }
+  };
+
+  const toCancel = await Booking.find(filter);
+  const result = await Booking.updateMany(filter, { $set: { status: 'cancelled' } });
+
+  // Refund the ones that were paid with PayPal
+  for (const booking of toCancel) {
+    await refundPayPalBooking(booking);
+  }
   return result.modifiedCount || 0;
 };
 

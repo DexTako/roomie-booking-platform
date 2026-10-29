@@ -5,6 +5,9 @@ const bcrypt = require('bcrypt');
 const User = require('../models/User');
 const Room = require('../models/Room');
 const Booking = require('../models/Booking');
+const Message = require('../models/Message');
+const ContactMessage = require('../models/ContactMessage');
+const Review = require('../models/Review');
 
 // Load environment variables
 dotenv.config();
@@ -28,6 +31,19 @@ const connectDB = async () => {
 // Seed data
 const seedData = async () => {
   try {
+    // Safety: this script ERASES all users, rooms, bookings, messages and reviews.
+    // It must be confirmed on purpose, so it can't wipe real data by accident.
+    if (!process.argv.includes('--yes')) {
+      console.log('⚠️  This will DELETE all users, rooms, bookings, messages and reviews in:');
+      console.log('   ', (process.env.MONGODB_URI || '').replace(/\/\/[^@]*@/, '//***@'));
+      console.log('   If that is what you want, run:  npm run seed -- --yes');
+      process.exit(0);
+    }
+    if (process.env.NODE_ENV === 'production') {
+      console.error('❌ Refusing to seed while NODE_ENV=production.');
+      process.exit(1);
+    }
+
     console.log('🌱 Starting database seed...');
 
     // Clear existing data
@@ -35,6 +51,9 @@ const seedData = async () => {
     await User.deleteMany({});
     await Room.deleteMany({});
     await Booking.deleteMany({});
+    await Message.deleteMany({});
+    await ContactMessage.deleteMany({});
+    await Review.deleteMany({});
 
     // Create default users
     console.log('👤 Creating default users...');
@@ -210,49 +229,22 @@ const seedData = async () => {
         model3D: "/models/room3/source/luxury_penthouse.glb",
         has3D: true,
         fixMaterials: false,
-        enablePhysics: true,
-        // Two-storey duplex: walk mode builds one collision grid per floor.
-        // All values are in the GLB's own units (not the viewer's scaled world).
-        walkConfig: {
-          radius: 9,
-          levels: [
-            { name: "Ground floor", floorY: 60, ceilY: 180, area: { min: [268, -1262], max: [712, -652] } },
-            { name: "Upper floor", floorY: 195, ceilY: 315, area: { min: [268, -1262], max: [712, -575] } }
-          ]
-        },
-        // Positions are at eye height of each floor (ground floor y -0.46, upper floor y 0.36)
         waypoints: {
-          entrance: {
-            position: [0.38, -0.46, 0.45],
-            target: [0.38, -0.55, 1.06]
+          main: {
+            position: [0, 1, 5],
+            target: [0, 0, 0]
           },
-          livingRoom: {
-            position: [-0.42, -0.46, 0.94],
-            target: [-0.94, -0.55, 1]
+          living: {
+            position: [2, 1, 3],
+            target: [-1, 0, 0]
           },
-          kitchen: {
-            position: [-0.14, -0.46, -1.5],
-            target: [-1, -0.52, -1.14]
+          bedroom: {
+            position: [-2, 1, 2],
+            target: [1, 0, -1]
           },
-          staircase: {
-            position: [0.38, -0.46, -0.16],
-            target: [0.38, -0.1, -1.14]
-          },
-          eastLounge: {
-            position: [1.26, -0.46, 0.82],
-            target: [1.66, -0.55, 0.94]
-          },
-          upperGallery: {
-            position: [0.38, 0.36, -1.5],
-            target: [0.38, 0.18, 0.08]
-          },
-          westBedroom: {
-            position: [-0.14, 0.36, 0.76],
-            target: [-0.9, 0.24, 1]
-          },
-          eastBedroom: {
-            position: [0.9, 0.36, 0.76],
-            target: [1.63, 0.24, 1]
+          terrace: {
+            position: [0, 1, -3],
+            target: [0, 0, 2]
           }
         },
         hostId: host._id,

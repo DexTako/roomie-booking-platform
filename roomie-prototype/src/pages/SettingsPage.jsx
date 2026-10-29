@@ -1,50 +1,37 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import Breadcrumb from '../components/Breadcrumb'
+import ChangePasswordForm from '../components/ChangePasswordForm'
 
 function SettingsPage({ onBack, onShowToast }) {
   const { user } = useAuth()
-  const [settings, setSettings] = useState({
+  const settingsKey = `roomie-settings:${user?.id || user?._id || 'guest'}`
+  const defaultSettings = {
     emailNotifications: true,
     smsNotifications: false,
     bookingReminders: true,
     promotionalEmails: false,
     weeklyNewsletter: true
-  })
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
+  }
+
+  // Remember the toggles on this device (they used to reset every time you left the page)
+  const [settings, setSettings] = useState(() => {
+    try {
+      return { ...defaultSettings, ...JSON.parse(localStorage.getItem(settingsKey)) }
+    } catch {
+      return defaultSettings
+    }
   })
 
   const handleSettingToggle = (setting) => {
-    setSettings({
-      ...settings,
-      [setting]: !settings[setting]
-    })
+    const next = { ...settings, [setting]: !settings[setting] }
+    setSettings(next)
+    try {
+      localStorage.setItem(settingsKey, JSON.stringify(next))
+    } catch {
+      // storage unavailable - the toggle still works for this visit
+    }
     onShowToast('Setting updated', 'success')
-  }
-
-  const handlePasswordChange = (e) => {
-    e.preventDefault()
-    
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      onShowToast('Passwords do not match', 'error')
-      return
-    }
-    
-    if (passwordData.newPassword.length < 6) {
-      onShowToast('Password must be at least 6 characters', 'error')
-      return
-    }
-
-    // Mock password change (in real app, would call API)
-    onShowToast('Password updated successfully!', 'success')
-    setPasswordData({
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: ''
-    })
   }
 
   return (
@@ -112,53 +99,7 @@ function SettingsPage({ onBack, onShowToast }) {
             Security
           </h3>
 
-          <form onSubmit={handlePasswordChange} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Current Password
-              </label>
-              <input
-                type="password"
-                value={passwordData.currentPassword}
-                onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                New Password
-              </label>
-              <input
-                type="password"
-                value={passwordData.newPassword}
-                onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Confirm New Password
-              </label>
-              <input
-                type="password"
-                value={passwordData.confirmPassword}
-                onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
-              Update Password
-            </button>
-          </form>
+          <ChangePasswordForm onShowToast={onShowToast} />
         </div>
       </div>
     </div>

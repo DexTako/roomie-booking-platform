@@ -90,6 +90,18 @@ export const authAPI = {
     });
   },
 
+  // Forgot password: ask for a reset link
+  forgotPassword: async (email) =>
+    apiRequest('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
+
+  // Reset password with the token from the emailed link
+  resetPassword: async (token, password) =>
+    apiRequest('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) }),
+
+  // Change password while logged in
+  changePassword: async (currentPassword, newPassword) =>
+    apiRequest('/auth/change-password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) }),
+
   // Get current user
   getMe: async () => {
     return apiRequest('/auth/me');
@@ -234,6 +246,24 @@ export const contactAPI = {
     apiRequest(`/admin/contact-messages/${id}`, { method: 'PUT', body: JSON.stringify({ status }) }),
 };
 
+// ==================== PAYMENTS API (PayPal) ====================
+
+export const paymentsAPI = {
+  // Is PayPal set up on the server? (also returns the public client id)
+  paypalConfig: async () => apiRequest('/payments/paypal/config'),
+
+  // Where guests send their GCash payment: { number, accountName, isDemo }
+  gcashConfig: async () => apiRequest('/payments/gcash/config'),
+
+  // The server works out the price and creates the PayPal order
+  paypalCreateOrder: async (stay) =>
+    apiRequest('/payments/paypal/create-order', { method: 'POST', body: JSON.stringify(stay) }),
+
+  // The server takes the payment and creates the booking
+  paypalCaptureOrder: async (orderID, bookingData) =>
+    apiRequest('/payments/paypal/capture-order', { method: 'POST', body: JSON.stringify({ orderID, bookingData }) }),
+};
+
 // ==================== HELPER FUNCTIONS ====================
 
 // Store auth token after login
@@ -270,6 +300,7 @@ export default {
   bookings: bookingsAPI,
   messages: messagesAPI,
   contact: contactAPI,
+  payments: paymentsAPI,
   storeAuthToken,
   clearAuthToken,
   isAuthenticated,

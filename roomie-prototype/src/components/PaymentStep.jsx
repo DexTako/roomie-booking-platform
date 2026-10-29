@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react'
+import api from '../services/api'
 import { PAYMENT_METHODS, formatCardNumber, formatExpiry, formatPHMobile, cardBrand } from '../utils/payment'
 
 const inputClass = (error) =>
@@ -15,14 +17,22 @@ function Field({ label, error, children }) {
   )
 }
 
-function PaymentStep({ method, onMethodChange, payment, onPaymentChange, errors, disabled }) {
+function PaymentStep({ method, onMethodChange, payment, onPaymentChange, errors, disabled, total, hiddenMethods = [] }) {
   const set = (field, value) => onPaymentChange({ ...payment, [field]: value })
+
+  // Where to send the GCash money (loaded from the backend)
+  const [gcash, setGcash] = useState({ number: '', accountName: '', isDemo: false })
+  useEffect(() => {
+    api.payments.gcashConfig()
+      .then(setGcash)
+      .catch(() => setGcash({ number: 'unavailable', accountName: 'Could not load the GCash number', isDemo: false }))
+  }, [])
 
   return (
     <div className="space-y-6">
       {/* Method picker */}
       <div className="space-y-3">
-        {PAYMENT_METHODS.map(m => (
+        {PAYMENT_METHODS.filter(m => !hiddenMethods.includes(m.id)).map(m => (
           <button
             key={m.id}
             type="button"
@@ -110,35 +120,54 @@ function PaymentStep({ method, onMethodChange, payment, onPaymentChange, errors,
       )}
 
       {method === 'gcash' && (
-        <div className="space-y-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
-          <Field label="GCash mobile number" error={errors.gcashNumber}>
+        <div className="space-y-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+          <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+            <li>Open <b>GCash</b> and tap <b>Send Money</b>.</li>
+            <li>
+              Send <b>${Number(total || 0).toFixed(2)}</b> (or the peso equivalent) to:
+              <div className="mt-2 p-3 bg-white border border-gray-200 rounded-lg flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-bold text-lg text-gray-900 tracking-wide">{gcash.number}</p>
+                  <p className="text-xs text-gray-500">{gcash.accountName}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard?.writeText(gcash.number)}
+                  className="px-3 py-1 text-xs font-semibold rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100"
+                >
+                  Copy number
+                </button>
+              </div>
+            </li>
+            <li>Type the <b>reference number</b> from your GCash receipt below.</li>
+          </ol>
+
+          <Field label="GCash reference number" error={errors.gcashReference}>
             <input
-              type="tel"
+              type="text"
               inputMode="numeric"
-              value={payment.gcashNumber}
-              onChange={(e) => set('gcashNumber', formatPHMobile(e.target.value))}
-              placeholder="0917 123 4567"
+              maxLength={20}
+              value={payment.gcashReference}
+              onChange={(e) => set('gcashReference', e.target.value.replace(/[^\d ]/g, ''))}
+              placeholder="e.g. 1234 567 890123"
               disabled={disabled}
-              className={inputClass(errors.gcashNumber)}
+              className={inputClass(errors.gcashReference)}
             />
           </Field>
-          <p className="text-xs text-gray-500">In a live setup you would approve the payment inside the GCash app.</p>
+
+          <p className="text-xs text-gray-500">
+            Your booking is sent to the host with this reference. The host checks the payment and approves your booking.
+            {gcash.isDemo && ' (Demo number: the owner still needs to set GCASH_NUMBER in the backend .env.)'}
+          </p>
         </div>
       )}
 
       {method === 'paypal' && (
         <div className="space-y-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
-          <Field label="PayPal email" error={errors.paypalEmail}>
-            <input
-              type="email"
-              value={payment.paypalEmail}
-              onChange={(e) => set('paypalEmail', e.target.value)}
-              placeholder="you@example.com"
-              disabled={disabled}
-              className={inputClass(errors.paypalEmail)}
-            />
-          </Field>
-          <p className="text-xs text-gray-500">In a live setup you would be redirected to PayPal to log in and approve.</p>
+          <p className="text-sm text-gray-700">
+            Press the PayPal button below. A PayPal window opens where you log in and approve the payment.
+            Your booking is created as soon as the payment goes through.
+          </p>
         </div>
       )}
 

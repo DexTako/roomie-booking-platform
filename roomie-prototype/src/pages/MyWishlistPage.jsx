@@ -5,7 +5,7 @@ import RoomCard from '../components/RoomCard'
 import Breadcrumb from '../components/Breadcrumb'
 
 function MyWishlistPage({ onBack, onViewRoom }) {
-  const { wishlist, wishlistCount } = useWishlist()
+  const { wishlist, removeFromWishlist } = useWishlist()
   const [rooms, setRooms] = useState([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -28,6 +28,17 @@ function MyWishlistPage({ onBack, onViewRoom }) {
   const wishlistRooms = rooms.filter(room => 
     wishlist.includes(room.id) || wishlist.includes(room._id)
   )
+  const wishlistCount = wishlistRooms.length
+
+  // Rooms that were deleted (or hidden) by the host disappear from the wishlist too,
+  // otherwise the navbar number keeps counting rooms you can't see.
+  useEffect(() => {
+    if (isLoading || rooms.length === 0) return
+    wishlist.forEach(id => {
+      const stillExists = rooms.some(room => room.id === id || room._id === id)
+      if (!stillExists) removeFromWishlist(id)
+    })
+  }, [isLoading, rooms, wishlist])
 
   return (
     <div className="min-h-screen bg-gray-50 pt-24">

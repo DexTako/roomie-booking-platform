@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import LegalModal from '../components/LegalModal'
 
 function RegisterPage({ onBack, onSwitchToLogin, onShowToast }) {
   const { register } = useAuth()
+  const [legalDoc, setLegalDoc] = useState(null) // 'terms' | 'privacy' | null
 
   const [formData, setFormData] = useState({
     name: '',
@@ -671,21 +673,23 @@ function RegisterPage({ onBack, onSwitchToLogin, onShowToast }) {
                 >
                   I agree to the{' '}
 
-                  <a
-                    href="#"
-                    className="text-blue-600 hover:text-blue-700 font-semibold"
+                  <button
+                    type="button"
+                    onClick={() => setLegalDoc('terms')}
+                    className="text-blue-600 hover:text-blue-700 font-semibold underline-offset-2 hover:underline"
                   >
                     Terms of Service
-                  </a>
+                  </button>
 
                   {' '}and{' '}
 
-                  <a
-                    href="#"
-                    className="text-blue-600 hover:text-blue-700 font-semibold"
+                  <button
+                    type="button"
+                    onClick={() => setLegalDoc('privacy')}
+                    className="text-blue-600 hover:text-blue-700 font-semibold underline-offset-2 hover:underline"
                   >
                     Privacy Policy
-                  </a>
+                  </button>
                 </label>
 
               </div>
@@ -778,6 +782,8 @@ function RegisterPage({ onBack, onSwitchToLogin, onShowToast }) {
         </div>
 
       </div>
+
+      {legalDoc && <LegalModal type={legalDoc} onClose={() => setLegalDoc(null)} />}
     </div>
   )
 }

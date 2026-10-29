@@ -1,6 +1,8 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
+const { sendMail, mailStatus } = require('../utils/mailer');
 
 // Generate JWT Token
 const generateToken = (id, rememberMe = true) => {
@@ -266,67 +268,171 @@ exports.logout = async (req, res) => {
 // @access  Public
 exports.forgotPassword = async (req, res) => {
   try {
-    const { email } = req.body;
+    const email = (req.body.email || '').trim().toLowerCase();
 
     if (!email) {
+      return res.status(400).json({ success: false, message: 'Please enter your email address.' });
+    }
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide email address'
+        message: 'That email doesn\'t look right. Use the format name@example.com.'
       });
     }
 
-    // Check if user exists
-    const user = await User.findOne({ email: email.toLowerCase() });
+    // Same answer whether or not the email has an account, so this form can't be used
+    // to find out who is registered.
+    const message = 'If an account exists for that email, we\'ve sent a password reset link. It expires in 1 hour.';
+    console.log(`[Roomie] Forgot password request received for "${email}".`);
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'No user found with this email address'
-      });
+    const user = await User.findOne({ email });
+    if (!user || user.isActive === false) {
+      // Nothing is emailed for unknown addresses (the visitor still sees the same message).
+      console.log(`[Roomie] Forgot password: no active account for "${email}", so no email was sent.`);
+      return res.status(200).json({ success: true, message });
     }
 
-    // For demo purposes, return a simple success message
-    // In production, you would generate a reset token and send email
-    res.status(200).json({
-      success: true,
-      message: 'Password reset instructions sent to your email (Demo: Use admin123 for admin accounts)'
-    });
+    // Random token; only its hash is saved, so a database leak can't be used to reset passwords
+    const token = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    await User.updateOne(
+      { _id: user._id },
+      { $set: { resetPasswordToken: hashedToken, resetPasswordExpires: new Date(Date.now() + 60 * 60 * 1000) } }
+    );
+
+    const baseUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+    const resetLink = `${baseUrl}/?reset=${token}`;
+
+    let emailSent = false;
+    try {
+      const result = await sendMail({
+        to: user.email,
+        subject: 'Reset your Roomie password',
+        text: `Hi ${user.name},\n\nUse this link to choose a new password (valid for 1 hour):\n${resetLink}\n\nIf you didn't ask for this, you can ignore this email.`,
+        html: `<p>Hi ${user.name},</p><p><a href="${resetLink}">Click here to choose a new password</a> (valid for 1 hour).</p><p>If you didn't ask for this, you can ignore this email.</p>`
+      });
+      emailSent = result.sent;
+      if (emailSent) console.log(`[Roomie] Password reset email sent to ${user.email}.`);
+    } catch (mailError) {
+      console.error('[Roomie] Could not send reset email:', mailError.message);
+    }
+
+    const response = { success: true, message };
+
+    if (!emailSent) {
+      // No email service set up (typical for a school project / local demo)
+      const status = mailStatus();
+      console.log(`[Roomie] Email not sent${status.reason ? ' (' + status.reason + ')' : ''}.`);
+      console.log(`[Roomie] Password reset link for ${user.email}: ${resetLink}`);
+      if (process.env.NODE_ENV !== 'production') {
+        response.devResetLink = resetLink;
+      }
+    }
+
+    res.status(200).json(response);
   } catch (error) {
     console.error('Forgot password error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error processing forgot password request',
-      error: error.message
+      message: 'We could not process your request right now. Please try again.'
     });
   }
 };
 
-// @desc    Reset password
+// @desc    Reset password with the emailed token
 // @route   POST /api/auth/reset-password
 // @access  Public
 exports.resetPassword = async (req, res) => {
   try {
     const { token, password } = req.body;
 
-    if (!token || !password) {
+    if (!token) {
+      return res.status(400).json({ success: false, message: 'This reset link is incomplete. Please request a new one.' });
+    }
+    if (!password) {
+      return res.status(400).json({ success: false, message: 'Please enter your new password.' });
+    }
+    if (password.length < 6) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide token and new password'
+        message: `Your new password is too short (${password.length} of 6 characters). Please use at least 6 characters.`
       });
     }
 
-    // For demo purposes, return a simple message
-    // In production, you would verify the token and update password
+    const hashedToken = crypto.createHash('sha256').update(String(token)).digest('hex');
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: new Date() }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'This reset link is invalid or has expired. Please request a new one.'
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await User.updateOne(
+      { _id: user._id },
+      { $set: { password: hashedPassword }, $unset: { resetPasswordToken: '', resetPasswordExpires: '' } }
+    );
+
     res.status(200).json({
       success: true,
-      message: 'Password reset successful (Demo mode)'
+      message: 'Your password has been updated. You can now log in with your new password.'
     });
   } catch (error) {
     console.error('Reset password error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error resetting password',
-      error: error.message
+      message: 'We could not reset your password right now. Please try again.'
+    });
+  }
+};
+
+// @desc    Change password while logged in
+// @route   PUT /api/auth/change-password
+// @access  Private
+exports.changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword) {
+      return res.status(400).json({ success: false, message: 'Please enter your current password.' });
+    }
+    if (!newPassword) {
+      return res.status(400).json({ success: false, message: 'Please enter a new password.' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: `Your new password is too short (${newPassword.length} of 6 characters). Please use at least 6 characters.`
+      });
+    }
+    if (newPassword === currentPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Your new password must be different from your current password.'
+      });
+    }
+
+    const user = await User.findById(req.user._id).select('+password');
+    const isMatch = user && (await bcrypt.compare(currentPassword, user.password));
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: 'Your current password is incorrect.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await User.updateOne({ _id: user._id }, { $set: { password: hashedPassword } });
+
+    res.status(200).json({ success: true, message: 'Your password has been changed.' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'We could not change your password right now. Please try again.'
     });
   }
 };

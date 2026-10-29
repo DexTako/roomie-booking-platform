@@ -1,43 +1,39 @@
 import { useState } from 'react'
+import api from '../services/api'
 
 function ForgotPasswordModal({ onClose, onShowToast }) {
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [error, setError] = useState('')
+  const [devLink, setDevLink] = useState('') // only set when the server has no email service (demo/dev)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     
     // Basic validation
-    if (!email) {
-      setError('Email is required')
+    if (!email.trim()) {
+      setError('Please enter your email address.')
       return
     }
 
-    if (!/\S+@\S+\.\S+/.test(email)) {
-      setError('Please enter a valid email address')
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+      setError('That email doesn\'t look right. Use the format name@example.com.')
       return
     }
 
     setIsLoading(true)
     setError('')
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false)
+    try {
+      const res = await api.auth.forgotPassword(email.trim())
+      setDevLink(res.devResetLink || '')
       setIsSuccess(true)
-
-      onShowToast?.(
-        `Password reset link sent to ${email}`,
-        'success'
-      )
-
-      // Auto close after 2 seconds
-      setTimeout(() => {
-        onClose()
-      }, 2000)
-    }, 1000)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleClose = () => {
@@ -165,10 +161,10 @@ function ForgotPasswordModal({ onClose, onShowToast }) {
 
                 <div>
                   <p className="text-sm font-semibold text-blue-800">
-                    Demo Mode Active
+                    How it works
                   </p>
                   <p className="text-sm text-blue-700 mt-0.5">
-                    This is a demo app. In production, you'll need to implement backend email sending with a service like SendGrid, AWS SES, or Nodemailer.
+                    We'll email you a link to choose a new password. The link works for 1 hour.
                   </p>
                 </div>
               </div>
@@ -243,16 +239,43 @@ function ForgotPasswordModal({ onClose, onShowToast }) {
               </h3>
 
               <p className="text-sm text-gray-600 mb-4">
-                We've sent a password reset link to
+                If an account exists for
               </p>
 
-              <p className="text-sm font-semibold text-blue-600 mb-6">
+              <p className="text-sm font-semibold text-blue-600 mb-4">
                 {email}
               </p>
+
+              <p className="text-sm text-gray-600 mb-4">
+                we've sent a password reset link. It expires in 1 hour.
+              </p>
+
+              {devLink && (
+                <div className="text-left p-4 mb-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+                  <p className="text-sm font-semibold text-yellow-800">Demo mode</p>
+                  <p className="text-xs text-yellow-700 mt-1 mb-3">
+                    No email service is set up on this server, so use this link instead of an email.
+                  </p>
+                  <a
+                    href={devLink}
+                    className="inline-block px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-semibold rounded-lg transition-colors"
+                  >
+                    Open reset link
+                  </a>
+                </div>
+              )}
 
               <p className="text-xs text-gray-500">
                 Didn't receive the email? Check your spam folder or try again.
               </p>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="mt-6 text-sm font-semibold text-blue-600 hover:text-blue-700"
+              >
+                Back to login
+              </button>
             </div>
           )}
         </div>

@@ -105,6 +105,8 @@ function HostDashboard() {
         // Other fields
         specialRequests: booking.specialRequests || '',
         paymentMethod: booking.paymentMethod || 'card',
+        paymentDetails: booking.paymentDetails || '',
+        paymentStatus: booking.paymentStatus,
         status: booking.status,
         createdAt: booking.createdAt
       }))

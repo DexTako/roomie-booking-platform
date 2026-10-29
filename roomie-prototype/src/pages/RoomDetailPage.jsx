@@ -121,6 +121,15 @@ function RoomDetailPage({ room, onBack, onNavigateToLogin, onNavigateToRegister 
     })
   }
 
+  // Shows the receipt once a booking exists (card/GCash/cash from the form, or PayPal after payment)
+  const finishBooking = (result) => {
+    setBookingData(result)
+    setIsBooked(true)
+    setShowBookingWizard(false)
+    setShowReceipt(true)
+    setSelectedDates({ checkIn: '', checkOut: '' })
+  }
+
   const handleBooking = async (bookingFormData) => {
     // Check if user is logged in - Fixed field names for backend API
     if (!user) {
@@ -146,7 +155,8 @@ function RoomDetailPage({ room, onBack, onNavigateToLogin, onNavigateToRegister 
         subtotal: bookingFormData.subtotal,
         serviceFee: bookingFormData.serviceFee,
         totalPrice: bookingFormData.totalPrice || bookingFormData.total,
-        paymentDetails: bookingFormData.paymentDetails
+        paymentDetails: bookingFormData.paymentDetails,
+        gcashReference: bookingFormData.gcashReference
       }
 
       // Debug logging
@@ -164,11 +174,7 @@ function RoomDetailPage({ room, onBack, onNavigateToLogin, onNavigateToRegister 
         totalPrice: result.totalPrice
       })
       
-      setBookingData(result)
-      setIsBooked(true)
-      setShowBookingWizard(false)
-      setShowReceipt(true) // Show receipt modal instead of notification
-      setSelectedDates({ checkIn: '', checkOut: '' })
+      finishBooking(result)
     } catch (error) {
       console.error('Booking error:', error)
       showNotification(
@@ -187,11 +193,15 @@ function RoomDetailPage({ room, onBack, onNavigateToLogin, onNavigateToRegister 
         try {
           // Cancel on the server, otherwise the host can still see and approve it
           const bookingId = bookingData?._id || bookingData?.id
-          if (bookingId) await api.cancelBooking(bookingId)
+          const result = bookingId ? await api.cancelBooking(bookingId) : null
           if (bookingData?.id) cancelBooking(bookingData.id) // local demo calendar, if it knows this booking
           setIsBooked(false)
           setBookingData(null)
-          showNotification('Booking Cancelled', 'Your booking has been cancelled successfully.', 'info')
+          showNotification(
+            'Booking Cancelled',
+            (result && result.message ? result.message + '.' : 'Your booking has been cancelled successfully.').replace('..', '.'),
+            'info'
+          )
         } catch (error) {
           showNotification(
             'Cancellation Failed',
@@ -477,6 +487,7 @@ function RoomDetailPage({ room, onBack, onNavigateToLogin, onNavigateToRegister 
           room={room}
           onClose={() => setShowBookingWizard(false)}
           onComplete={handleBooking}
+          onBookingCreated={finishBooking}
           initialDates={selectedDates}
         />
       )}

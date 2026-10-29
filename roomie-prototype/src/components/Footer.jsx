@@ -1,7 +1,7 @@
 import SocialLinks from './SocialLinks'
 
 // One footer for every page, so it always looks the same and the year is never out of date.
-function Footer({ onNavigateToHome, onNavigateToHowItWorks, onNavigateToContact }) {
+function Footer({ onNavigateToHome, onNavigateToHowItWorks, onNavigateToContact, onNavigateToTerms, onNavigateToPrivacy }) {
   const year = new Date().getFullYear()
 
   const linkClass = 'text-sm text-gray-400 hover:text-white transition-colors text-left'
@@ -32,6 +32,14 @@ function Footer({ onNavigateToHome, onNavigateToHowItWorks, onNavigateToContact 
       <div className="border-t border-white/10">
         <div className="container mx-auto px-4 py-4 text-center text-xs text-gray-500">
           © {year} Roomie. All rights reserved.
+          <span className="mx-2">·</span>
+          <button type="button" onClick={onNavigateToTerms} className="hover:text-white transition-colors">
+            Terms of Service
+          </button>
+          <span className="mx-2">·</span>
+          <button type="button" onClick={onNavigateToPrivacy} className="hover:text-white transition-colors">
+            Privacy Policy
+          </button>
         </div>
       </div>
     </footer>

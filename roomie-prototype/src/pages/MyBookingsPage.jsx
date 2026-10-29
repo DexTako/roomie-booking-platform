@@ -94,13 +94,14 @@ function MyBookingsPage({ onBack, onViewRoom }) {
       message: 'Are you sure you want to cancel this booking request? This action cannot be undone.',
       onConfirm: async () => {
         try {
-          await api.cancelBooking(bookingId)
+          const result = await api.cancelBooking(bookingId)
           // Refresh bookings after cancellation
           loadBookings()
           setNotificationModal({
             isOpen: true,
             title: 'Booking Cancelled',
-            message: 'Your booking has been cancelled successfully.',
+            // includes "Your PayPal payment has been refunded." when that applies
+            message: (result && result.message ? result.message + '.' : 'Your booking has been cancelled successfully.').replace('..', '.'),
             type: 'info'
           })
         } catch (error) {

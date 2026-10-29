@@ -18,6 +18,8 @@ import StaffHeader from './components/StaffHeader'
 import LoadingScreen from './components/LoadingScreen'
 import Toast from './components/Toast'
 import Footer from './components/Footer'
+import LegalPage from './pages/LegalPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import api from './services/api'
 import { useAuth } from './context/AuthContext'
 import { useComparison } from './context/ComparisonContext'
@@ -31,6 +33,18 @@ function App() {
   const [selectedRoom, setSelectedRoom] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [toast, setToast] = useState(null)
+  const [resetToken, setResetToken] = useState(null)
+
+  // Opened from the password reset email: https://site/?reset=TOKEN
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get('reset')
+    if (token) {
+      setResetToken(token)
+      setCurrentView('resetPassword')
+      // remove the token from the address bar
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [])
 
   // ROLE-BASED VIEWS
   // Host and admin only ever see their own dashboard (no customer pages).
@@ -190,6 +204,17 @@ function App() {
   }
 
 
+  // TERMS OF SERVICE / PRIVACY POLICY
+  const handleNavigateToLegal = (type) => {
+    setCurrentView(type === 'privacy' ? 'privacy' : 'terms')
+
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    })
+  }
+
+
   // TOAST
   const showToast = (message, type = 'success') => {
     setToast({
@@ -222,13 +247,14 @@ function App() {
         It will still be used on the other pages.
       */}
       {isStaff && (
-        <StaffHeader onLoggedOut={handleBackToHome} />
+        <StaffHeader onLoggedOut={handleBackToHome} onShowToast={showToast} />
       )}
 
       {!isStaff && ![
         'home',
         'login',
-        'register'
+        'register',
+        'resetPassword'
       ].includes(currentView) && (
         <Navbar
           onNavigateToLogin={handleNavigateToLogin}
@@ -350,6 +376,22 @@ function App() {
           onShowToast={showToast}
         />
 
+      ) : currentView === 'resetPassword' ? (
+
+        <ResetPasswordPage
+          token={resetToken}
+          onGoToLogin={handleNavigateToLogin}
+          onRequestNewLink={handleNavigateToLogin}
+        />
+
+      ) : currentView === 'terms' || currentView === 'privacy' ? (
+
+        <LegalPage
+          type={currentView}
+          onBack={handleBackToHome}
+          onNavigate={handleNavigateToLegal}
+        />
+
       ) : currentView === 'notFound' ? (
 
         <NotFoundPage
@@ -381,11 +423,13 @@ function App() {
 
 
       {/* FOOTER - same on every page (login/register have their own compact one) */}
-      {!isStaff && !['login', 'register'].includes(currentView) && (
+      {!isStaff && !['login', 'register', 'resetPassword'].includes(currentView) && (
         <Footer
           onNavigateToHome={handleBackToHome}
           onNavigateToHowItWorks={handleNavigateToHowItWorks}
           onNavigateToContact={handleNavigateToContact}
+          onNavigateToTerms={() => handleNavigateToLegal('terms')}
+          onNavigateToPrivacy={() => handleNavigateToLegal('privacy')}
         />
       )}
 

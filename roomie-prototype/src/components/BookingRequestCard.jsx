@@ -140,6 +140,23 @@ function BookingRequestCard({ booking, onApprove, onDecline, onMessage, unreadCo
         </div>
       )}
 
+      {/* GCash: the host checks the money arrived before approving */}
+      {booking.paymentMethod === 'gcash' && (
+        <div className={`mb-4 p-3 rounded-lg border ${
+          booking.paymentStatus === 'completed' ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'
+        }`}>
+          <p className="text-xs font-semibold text-gray-800">
+            📱 Paid with GCash{booking.paymentStatus === 'completed' ? ' (confirmed)' : ' (not checked yet)'}
+          </p>
+          <p className="text-sm text-gray-700 mt-1">{booking.paymentDetails}</p>
+          {booking.paymentStatus !== 'completed' && (
+            <p className="text-xs text-amber-800 mt-1">
+              Open your GCash app, check this reference arrived for the total below, then approve.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Price Breakdown */}
       <div className="border-t border-gray-200 pt-4 mb-4">
         <div className="space-y-2 text-sm">

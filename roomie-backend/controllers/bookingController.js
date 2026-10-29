@@ -1,5 +1,7 @@
 const Booking = require('../models/Booking');
 const Room = require('../models/Room');
+const { refundPayPalBooking } = require('./paypalController');
+const { normalizeReference, isValidReference } = require('./gcashController');
 
 // Helper function to ensure booking has complete price data
 const ensureBookingPrices = async (booking) => {
@@ -148,7 +150,8 @@ exports.createBooking = async (req, res) => {
       guestPhone,
       specialRequests,
       paymentMethod,
-      paymentDetails
+      paymentDetails,
+      gcashReference
     } = req.body;
 
     // Validation
@@ -157,6 +160,33 @@ exports.createBooking = async (req, res) => {
         success: false,
         message: 'Please provide all required fields'
       });
+    }
+
+    // PayPal bookings are only created after a real PayPal payment (see paypalController)
+    if (paymentMethod === 'paypal') {
+      return res.status(400).json({
+        success: false,
+        message: 'PayPal bookings must be paid through the PayPal button.'
+      });
+    }
+
+    // GCash: the guest has already sent the money, so we need the reference number from their receipt
+    let gcashRef = '';
+    if (paymentMethod === 'gcash') {
+      gcashRef = normalizeReference(gcashReference);
+      if (!isValidReference(gcashRef)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please enter the reference number from your GCash receipt (usually 13 digits).'
+        });
+      }
+      const reused = await Booking.findOne({ paymentMethod: 'gcash', transactionId: gcashRef });
+      if (reused) {
+        return res.status(400).json({
+          success: false,
+          message: 'That GCash reference number was already used for another booking. Please check the number.'
+        });
+      }
     }
 
     // Get room details
@@ -244,9 +274,10 @@ exports.createBooking = async (req, res) => {
       serviceFee,
       totalPrice,
       paymentMethod: paymentMethod || 'card',
-      paymentDetails: paymentDetails || '',
-      // Cash is paid on arrival, so it is not "completed" yet
-      paymentStatus: (paymentMethod || 'card') === 'cash' ? 'pending' : 'completed',
+      paymentDetails: gcashRef ? `GCash ref ${gcashRef}` : (paymentDetails || ''),
+      transactionId: gcashRef || undefined,
+      // Cash is paid on arrival and GCash is checked by the host, so neither is "completed" yet
+      paymentStatus: ['cash', 'gcash'].includes(paymentMethod || 'card') ? 'pending' : 'completed',
       status: 'pending'
     });
 
@@ -332,9 +363,14 @@ exports.updateBookingStatus = async (req, res) => {
 
     // Change the status only if it is still what we just checked. If the customer
     // cancelled a moment ago, this finds nothing and the host gets a clear message.
+    const update = { status };
+    if (status === 'approved' && booking.paymentMethod === 'gcash' && booking.paymentStatus === 'pending') {
+      update.paymentStatus = 'completed'; // approving means the host saw the GCash payment arrive
+      booking.paymentStatus = 'completed';
+    }
     const changed = await Booking.findOneAndUpdate(
       { _id: booking._id, status: booking.status },
-      { $set: { status } },
+      { $set: update },
       { new: true }
     );
     if (!changed) {
@@ -345,9 +381,24 @@ exports.updateBookingStatus = async (req, res) => {
     }
     booking.status = status;
 
+    // Declined or cancelled by the host: give a PayPal-paid guest their money back
+    let refundNote = '';
+    if (status === 'declined' || status === 'cancelled') {
+      const refund = await refundPayPalBooking(booking);
+      if (refund.refunded) {
+        booking.paymentStatus = 'refunded';
+        refundNote = ' The guest\'s PayPal payment was refunded.';
+      } else if (refund.attempted) {
+        refundNote = ' The PayPal refund failed, so please refund the guest manually in PayPal.';
+      }
+      if (booking.paymentMethod === 'gcash') {
+        refundNote = ` Remember to send the guest's GCash payment back (reference ${booking.transactionId || 'not recorded'}).`;
+      }
+    }
+
     res.status(200).json({
       success: true,
-      message: `Booking ${status} successfully`,
+      message: `Booking ${status} successfully.${refundNote}`,
       booking
     });
   } catch (error) {
@@ -393,9 +444,22 @@ exports.cancelBooking = async (req, res) => {
     booking.status = 'cancelled';
     await booking.save();
 
+    // PayPal-paid bookings are refunded in full when the guest cancels
+    const refund = await refundPayPalBooking(booking);
+    if (refund.refunded) booking.paymentStatus = 'refunded';
+
+    let message = 'Booking cancelled successfully';
+    if (refund.refunded) message += '. Your PayPal payment has been refunded.';
+    if (refund.attempted && !refund.refunded) {
+      message += '. We could not refund your PayPal payment automatically, so please contact support.';
+    }
+    if (booking.paymentMethod === 'gcash') {
+      message += '. GCash payments are refunded by the host, so please message them to get your money back.';
+    }
+
     res.status(200).json({
       success: true,
-      message: 'Booking cancelled successfully',
+      message,
       booking
     });
   } catch (error) {

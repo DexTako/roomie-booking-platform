@@ -1,70 +1,69 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { useAuth } from './AuthContext'
 
 const WishlistContext = createContext()
 
+const readList = (key) => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key))
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
 export function WishlistProvider({ children }) {
-  const [wishlist, setWishlist] = useState([])
   const { user } = useAuth()
 
-  // Get user-specific localStorage key
-  const getWishlistKey = () => {
-    return user ? `roomie-wishlist-${user.id}` : 'roomie-wishlist-guest'
+  // Each account (and each guest) has its own wishlist, so a second person using the
+  // same browser doesn't see or change someone else's saved rooms.
+  const storageKey = `roomie-wishlist:${user?.id || user?._id || 'guest'}`
+  const keyRef = useRef(storageKey)
+
+  // Read the saved list straight away (no empty first render that could overwrite it)
+  const [wishlist, setWishlist] = useState(() => readList(storageKey))
+
+  // Switch lists when the user logs in or out
+  useEffect(() => {
+    if (keyRef.current !== storageKey) {
+      keyRef.current = storageKey
+      setWishlist(readList(storageKey))
+    }
+  }, [storageKey])
+
+  // Save only when the wishlist is changed by the user
+  const update = (change) => {
+    setWishlist(prev => {
+      const next = change(prev)
+      try {
+        localStorage.setItem(keyRef.current, JSON.stringify(next))
+      } catch (error) {
+        console.error('Failed to save wishlist:', error)
+      }
+      return next
+    })
   }
 
-  // Load user-specific wishlist when user changes
-  useEffect(() => {
-    if (user) {
-      // Load wishlist for this specific user
-      const saved = localStorage.getItem(getWishlistKey())
-      if (saved) {
-        try {
-          setWishlist(JSON.parse(saved))
-        } catch (error) {
-          console.error('Failed to load wishlist:', error)
-          setWishlist([])
-        }
-      } else {
-        setWishlist([])
-      }
-    } else {
-      // Clear wishlist when no user is logged in
-      setWishlist([])
-    }
-  }, [user])
-
-  // Save to localStorage whenever wishlist changes
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem(getWishlistKey(), JSON.stringify(wishlist))
-    }
-  }, [wishlist, user])
-
   const addToWishlist = (roomId) => {
-    if (!wishlist.includes(roomId)) {
-      setWishlist([...wishlist, roomId])
-      return true
-    }
-    return false
+    if (wishlist.includes(roomId)) return false
+    update(prev => (prev.includes(roomId) ? prev : [...prev, roomId]))
+    return true
   }
 
   const removeFromWishlist = (roomId) => {
-    setWishlist(wishlist.filter(id => id !== roomId))
+    update(prev => prev.filter(id => id !== roomId))
   }
 
   const toggleWishlist = (roomId) => {
     if (wishlist.includes(roomId)) {
       removeFromWishlist(roomId)
       return false
-    } else {
-      addToWishlist(roomId)
-      return true
     }
+    addToWishlist(roomId)
+    return true
   }
 
-  const isInWishlist = (roomId) => {
-    return wishlist.includes(roomId)
-  }
+  const isInWishlist = (roomId) => wishlist.includes(roomId)
 
   return (
     <WishlistContext.Provider

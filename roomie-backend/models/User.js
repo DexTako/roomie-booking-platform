@@ -52,6 +52,15 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  // Password reset: only a hash of the emailed token is stored
+  resetPasswordToken: {
+    type: String,
+    select: false
+  },
+  resetPasswordExpires: {
+    type: Date,
+    select: false
+  },
   bannedAt: {
     type: Date,
     default: null
@@ -96,6 +105,8 @@ userSchema.virtual('bookings', {
 userSchema.methods.toJSON = function() {
   const user = this.toObject();
   delete user.password;
+  delete user.resetPasswordToken;
+  delete user.resetPasswordExpires;
   return user;
 };
 

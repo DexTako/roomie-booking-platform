@@ -1,17 +1,25 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import AvailabilityCalendar from './AvailabilityCalendar'
 import PaymentStep from './PaymentStep'
+import PayPalButton from './PayPalButton'
 import { EMPTY_PAYMENT, validatePayment, paymentDetailsLabel } from '../utils/payment'
 import { findNextAvailableRange, isRangeAvailable } from '../data/bookings'
 import api from '../services/api'
 import { calculateStayPrice, formatDateLabel, todayISO, toISODate } from '../utils/pricing'
 
-function BookingWizard({ room, onClose, onComplete, initialDates }) {
+function BookingWizard({ room, onClose, onComplete, onBookingCreated, initialDates }) {
   const { user } = useAuth()
   const [currentStep, setCurrentStep] = useState(1)
   const [dateNotice, setDateNotice] = useState('')
   const [payment, setPayment] = useState(EMPTY_PAYMENT)
+  // PayPal only shows up if the owner has set it up on the server
+  const [paypalAvailable, setPaypalAvailable] = useState(false)
+  useEffect(() => {
+    api.payments.paypalConfig()
+      .then(c => setPaypalAvailable(Boolean(c.configured)))
+      .catch(() => setPaypalAvailable(false))
+  }, [])
   const [paymentErrors, setPaymentErrors] = useState({})
   const [isProcessing, setIsProcessing] = useState(false)
   const [bookingData, setBookingData] = useState({
@@ -86,7 +94,8 @@ function BookingWizard({ room, onClose, onComplete, initialDates }) {
         serviceFee,
         total,
         totalPrice: total,
-        paymentDetails: paymentDetailsLabel(method, payment)
+        paymentDetails: paymentDetailsLabel(method, payment),
+        gcashReference: method === 'gcash' ? payment.gcashReference : undefined
       })
     } finally {
       setIsProcessing(false)
@@ -347,6 +356,8 @@ function BookingWizard({ room, onClose, onComplete, initialDates }) {
                 onPaymentChange={setPayment}
                 errors={paymentErrors}
                 disabled={isProcessing}
+                total={total}
+                hiddenMethods={paypalAvailable ? [] : ['paypal']}
               />
 
               {/* Price Summary */}
@@ -370,7 +381,11 @@ function BookingWizard({ room, onClose, onComplete, initialDates }) {
 
               <div className="p-4 bg-gray-100 rounded-xl">
                 <p className="text-xs text-gray-600">
-                  💡 This is a demo checkout. No real payment will be processed.
+                  {bookingData.paymentMethod === 'paypal'
+                    ? '💡 PayPal runs in test (sandbox) mode. Log in with a PayPal sandbox buyer account; no real money is used.'
+                    : bookingData.paymentMethod === 'gcash'
+                      ? '💡 Send the GCash payment first, then enter the reference number. The host confirms it when approving your booking.'
+                      : '💡 This is a demo checkout. No real payment will be processed.'}
                 </p>
               </div>
             </div>
@@ -410,6 +425,24 @@ function BookingWizard({ room, onClose, onComplete, initialDates }) {
                 Back
               </button>
 
+              {bookingData.paymentMethod === 'paypal' ? (
+                <div className="w-64">
+                  <PayPalButton
+                    stay={{
+                      roomId: room.id || room._id,
+                      checkIn: bookingData.checkIn,
+                      checkOut: bookingData.checkOut,
+                      guests: bookingData.guests,
+                      guestName: bookingData.guestName,
+                      guestEmail: bookingData.guestEmail,
+                      guestPhone: bookingData.guestPhone,
+                      specialRequests: bookingData.specialRequests
+                    }}
+                    onPaid={(booking) => onBookingCreated?.(booking)}
+                    disabled={isProcessing}
+                  />
+                </div>
+              ) : (
               <button
                 onClick={handleSubmit}
                 disabled={isProcessing}
@@ -426,6 +459,7 @@ function BookingWizard({ room, onClose, onComplete, initialDates }) {
                   `Pay $${total.toFixed(2)}`
                 )}
               </button>
+              )}
             </>
           )}
         </div>

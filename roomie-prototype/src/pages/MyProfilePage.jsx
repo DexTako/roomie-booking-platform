@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import Breadcrumb from '../components/Breadcrumb'
 import Avatar from '../components/Avatar'
+import ChangePasswordForm from '../components/ChangePasswordForm'
 import { normalizeImageUrl, canLoadImage } from '../utils/imageUrl'
 
 function MyProfilePage({ onBack, onShowToast }) {
@@ -253,6 +254,14 @@ function MyProfilePage({ onBack, onShowToast }) {
                 </div>
               )}
             </form>
+          </div>
+        </div>
+
+        {/* Change Password */}
+        <div className="mt-4 md:mt-6 bg-white rounded-lg shadow-sm p-4 md:p-6">
+          <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">Change Password</h3>
+          <div className="max-w-md">
+            <ChangePasswordForm onShowToast={onShowToast} />
           </div>
         </div>
 
