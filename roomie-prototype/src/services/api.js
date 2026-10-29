@@ -98,6 +98,14 @@ export const authAPI = {
   resetPassword: async (token, password) =>
     apiRequest('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) }),
 
+  // Confirm the email address with the token from the emailed link
+  verifyEmail: async (token) =>
+    apiRequest('/auth/verify-email', { method: 'POST', body: JSON.stringify({ token }) }),
+
+  // Send the verification email again
+  resendVerification: async () =>
+    apiRequest('/auth/resend-verification', { method: 'POST' }),
+
   // Change password while logged in
   changePassword: async (currentPassword, newPassword) =>
     apiRequest('/auth/change-password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) }),
@@ -242,6 +250,9 @@ export const contactAPI = {
 
   // Admin: read the inbox and change a message's status
   list: async () => apiRequest('/admin/contact-messages'),
+  // Admin: email a reply straight to the sender
+  reply: async (id, reply) =>
+    apiRequest(`/admin/contact-messages/${id}/reply`, { method: 'POST', body: JSON.stringify({ reply }) }),
   setStatus: async (id, status) =>
     apiRequest(`/admin/contact-messages/${id}`, { method: 'PUT', body: JSON.stringify({ status }) }),
 };

@@ -1,6 +1,11 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import api from '../services/api'
 
+// Session cookie used for "Remember me" (a cookie without an expiry lives until the browser closes)
+const hasSessionCookie = () => document.cookie.split('; ').some((c) => c.startsWith('roomieSession='))
+const setSessionCookie = () => { document.cookie = 'roomieSession=1; path=/; SameSite=Lax' }
+const clearSessionCookie = () => { document.cookie = 'roomieSession=; path=/; max-age=0; SameSite=Lax' }
+
 // Create the auth context
 const AuthContext = createContext(null)
 
@@ -21,8 +26,9 @@ export const AuthProvider = ({ children }) => {
   // Load user from localStorage on mount and verify token
   useEffect(() => {
     // "Remember me" unchecked = stay signed in only until the browser is closed.
-    // sessionStorage is wiped when the browser closes, localStorage is not.
-    if (localStorage.getItem('rememberMe') === 'false' && !sessionStorage.getItem('sessionActive')) {
+    // A session cookie (no expiry) is shared by all tabs and deleted when the browser closes,
+    // while localStorage is kept. If "remember me" was off and the cookie is gone, sign out.
+    if (localStorage.getItem('rememberMe') === 'false' && !hasSessionCookie()) {
       localStorage.removeItem('token')
       localStorage.removeItem('currentUser')
       localStorage.removeItem('rememberMe')
@@ -74,7 +80,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('token', response.token)
         localStorage.setItem('currentUser', JSON.stringify(response.user))
         localStorage.setItem('rememberMe', rememberMe ? 'true' : 'false')
-        sessionStorage.setItem('sessionActive', '1')
+        setSessionCookie()
         
         // Set token in api service
         api.setAuthToken(response.token)
@@ -105,7 +111,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('token', response.token)
         localStorage.setItem('currentUser', JSON.stringify(response.user))
         localStorage.setItem('rememberMe', 'true')
-        sessionStorage.setItem('sessionActive', '1')
+        setSessionCookie()
         
         // Set token in api service
         api.setAuthToken(response.token)
@@ -127,12 +133,25 @@ export const AuthProvider = ({ children }) => {
   }
 
   // Logout function
+  // Re-read the account from the server (e.g. after the email was verified)
+  const refreshUser = async () => {
+    try {
+      const res = await api.auth.getMe()
+      if (res?.user) {
+        setUser(res.user)
+        localStorage.setItem('currentUser', JSON.stringify(res.user))
+      }
+    } catch {
+      // keep the current user if the server can't be reached
+    }
+  }
+
   const logout = () => {
     setUser(null)
     localStorage.removeItem('currentUser')
     localStorage.removeItem('token')
     localStorage.removeItem('rememberMe')
-    sessionStorage.removeItem('sessionActive')
+    clearSessionCookie()
     api.setAuthToken(null)
   }
 
@@ -168,6 +187,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     user,
     isLoading,
+    refreshUser,
     isAuthenticated: !!user,
     login,
     register,

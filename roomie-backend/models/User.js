@@ -52,6 +52,19 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  // Email verification (accounts without this field count as verified)
+  isEmailVerified: {
+    type: Boolean,
+    default: true
+  },
+  emailVerifyToken: {
+    type: String,
+    select: false
+  },
+  emailVerifyExpires: {
+    type: Date,
+    select: false
+  },
   // Password reset: only a hash of the emailed token is stored
   resetPasswordToken: {
     type: String,
@@ -107,6 +120,8 @@ userSchema.methods.toJSON = function() {
   delete user.password;
   delete user.resetPasswordToken;
   delete user.resetPasswordExpires;
+  delete user.emailVerifyToken;
+  delete user.emailVerifyExpires;
   return user;
 };
 

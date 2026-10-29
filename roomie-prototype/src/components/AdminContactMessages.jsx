@@ -7,12 +7,19 @@ const STATUS_STYLE = {
   resolved: 'bg-green-100 text-green-700'
 }
 
-// Admin inbox for messages sent from the public Contact page
+const formatTime = (value) =>
+  new Date(value).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+
+// Admin inbox for messages sent from the public Contact page.
+// Replies are emailed straight to the person who wrote to us.
 function AdminContactMessages() {
   const [messages, setMessages] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [openId, setOpenId] = useState(null)
+  const [replyText, setReplyText] = useState('')
+  const [isReplying, setIsReplying] = useState(false)
 
   const load = async () => {
     try {
@@ -39,9 +46,28 @@ function AdminContactMessages() {
     }
   }
 
+  const sendReply = async (m) => {
+    setIsReplying(true)
+    setError('')
+    setNotice('')
+    try {
+      const res = await api.contact.reply(m._id, replyText)
+      setMessages(prev => prev.map(x => (x._id === m._id ? res.message : x)))
+      setReplyText('')
+      setNotice(`Reply emailed to ${m.email}.`)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setIsReplying(false)
+    }
+  }
+
   const toggleOpen = (m) => {
     const opening = openId !== m._id
     setOpenId(opening ? m._id : null)
+    setReplyText('')
+    setNotice('')
+    setError('')
     // Opening a new message marks it as read
     if (opening && m.status === 'new') setStatus(m._id, 'read')
   }
@@ -59,7 +85,7 @@ function AdminContactMessages() {
         </button>
       </div>
 
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+      {error && <p className="mb-4 text-sm text-red-600" role="alert">{error}</p>}
 
       {messages.length === 0 ? (
         <p className="text-gray-500 py-8 text-center">No messages yet.</p>
@@ -77,9 +103,7 @@ function AdminContactMessages() {
                     {m.subject}
                   </p>
                   <p className="text-sm text-gray-500 truncate">
-                    {m.name} · {m.email} · {new Date(m.createdAt).toLocaleString('en-US', {
-                      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
-                    })}
+                    {m.name} · {m.email} · {formatTime(m.createdAt)}
                   </p>
                 </div>
                 <span className={`text-xs font-semibold px-2 py-1 rounded-full capitalize ${STATUS_STYLE[m.status]}`}>
@@ -90,13 +114,38 @@ function AdminContactMessages() {
               {openId === m._id && (
                 <div className="px-4 pb-4 border-t border-gray-100">
                   <p className="whitespace-pre-wrap break-words text-sm text-gray-700 py-3">{m.message}</p>
-                  <div className="flex flex-wrap gap-2">
-                    <a
-                      href={`mailto:${m.email}?subject=${encodeURIComponent('Re: ' + m.subject)}`}
-                      className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700"
+
+                  {m.adminReply && (
+                    <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-xs font-semibold text-green-800">
+                        Your reply, emailed {m.repliedAt ? formatTime(m.repliedAt) : ''}
+                      </p>
+                      <p className="whitespace-pre-wrap break-words text-sm text-gray-700 mt-1">{m.adminReply}</p>
+                    </div>
+                  )}
+
+                  <label htmlFor={`reply-${m._id}`} className="block text-xs font-semibold text-gray-600 mb-1">
+                    {m.adminReply ? 'Send another reply' : `Reply to ${m.name} (emailed to ${m.email})`}
+                  </label>
+                  <textarea
+                    id={`reply-${m._id}`}
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    rows={4}
+                    maxLength={3000}
+                    placeholder="Write your reply. It is emailed straight to the sender."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                  {notice && <p className="mt-2 text-sm text-green-700" role="status">{notice}</p>}
+
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <button
+                      onClick={() => sendReply(m)}
+                      disabled={isReplying || !replyText.trim()}
+                      className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50"
                     >
-                      Reply by email
-                    </a>
+                      {isReplying ? 'Sending...' : 'Send reply by email'}
+                    </button>
                     {m.status !== 'resolved' ? (
                       <button
                         onClick={() => setStatus(m._id, 'resolved')}

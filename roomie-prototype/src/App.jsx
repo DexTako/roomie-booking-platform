@@ -1,31 +1,39 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import HomePage from './pages/HomePage'
-import RoomDetailPage from './pages/RoomDetailPage'
-import HostDashboard from './pages/HostDashboard'
-import AdminDashboard from './pages/AdminDashboard'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
-import MyBookingsPage from './pages/MyBookingsPage'
-import MyProfilePage from './pages/MyProfilePage'
-import MyWishlistPage from './pages/MyWishlistPage'
-import ComparisonPage from './pages/ComparisonPage'
-import SettingsPage from './pages/SettingsPage'
-import HowItWorksPage from './pages/HowItWorksPage'
-import ContactPage from './pages/ContactPage'
 import NotFoundPage from './pages/NotFoundPage'
 import Navbar from './components/Navbar'
 import StaffHeader from './components/StaffHeader'
 import LoadingScreen from './components/LoadingScreen'
 import Toast from './components/Toast'
 import Footer from './components/Footer'
-import LegalPage from './pages/LegalPage'
-import ResetPasswordPage from './pages/ResetPasswordPage'
+import VerifyEmailBanner from './components/VerifyEmailBanner'
 import api from './services/api'
 import { useAuth } from './context/AuthContext'
 import { useComparison } from './context/ComparisonContext'
 
+// Pages are loaded only when they are opened (smaller first download, faster home page,
+// and the heavy 3D room viewer is fetched only when someone opens a room).
+const RoomDetailPage = lazy(() => import('./pages/RoomDetailPage'))
+const HostDashboard = lazy(() => import('./pages/HostDashboard'))
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
+const MyBookingsPage = lazy(() => import('./pages/MyBookingsPage'))
+const MyProfilePage = lazy(() => import('./pages/MyProfilePage'))
+const MyWishlistPage = lazy(() => import('./pages/MyWishlistPage'))
+const ComparisonPage = lazy(() => import('./pages/ComparisonPage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const HowItWorksPage = lazy(() => import('./pages/HowItWorksPage'))
+const ContactPage = lazy(() => import('./pages/ContactPage'))
+const LegalPage = lazy(() => import('./pages/LegalPage'))
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
+
+const PageLoader = () => (
+  <div className="min-h-[60vh] flex items-center justify-center text-gray-500">Loading...</div>
+)
+
 function App() {
-  const { user, isLoading: authLoading } = useAuth()
+  const { user, isLoading: authLoading, refreshUser } = useAuth()
   const { comparisonCount } = useComparison()
 
   const [viewState, setCurrentView] = useState('home')
@@ -34,6 +42,19 @@ function App() {
   const [isLoading, setIsLoading] = useState(true)
   const [toast, setToast] = useState(null)
   const [resetToken, setResetToken] = useState(null)
+
+  // Opened from the "confirm your email" link: https://site/?verify=TOKEN
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get('verify')
+    if (!token) return
+    window.history.replaceState({}, '', window.location.pathname)
+    api.auth.verifyEmail(token)
+      .then((res) => {
+        showToast(res.message, 'success')
+        refreshUser()
+      })
+      .catch((error) => showToast(error.message, 'error'))
+  }, [])
 
   // Opened from the password reset email: https://site/?reset=TOKEN
   useEffect(() => {
@@ -275,6 +296,7 @@ function App() {
 
       {/* ================= PAGES ================= */}
 
+      <Suspense fallback={<PageLoader />}>
       {currentView === 'home' ? (
 
         <HomePage
@@ -410,6 +432,9 @@ function App() {
         )
 
       )}
+      </Suspense>
+
+      <VerifyEmailBanner onShowToast={showToast} />
 
 
       {/* TOAST NOTIFICATION */}

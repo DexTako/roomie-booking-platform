@@ -2,7 +2,10 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
-const { sendMail, mailStatus } = require('../utils/mailer');
+const { sendMail, mailStatus, isMailConfigured } = require('../utils/mailer');
+
+// Request fields must be plain text (blocks objects/arrays sent to cause errors or injection)
+const str = (value) => (typeof value === 'string' ? value : '');
 
 // Generate JWT Token
 const generateToken = (id, rememberMe = true) => {
@@ -11,14 +14,32 @@ const generateToken = (id, rememberMe = true) => {
   });
 };
 
+// Emails a one-time link (valid 24 hours) that confirms the user's address
+const sendVerificationEmail = async (user) => {
+  const token = crypto.randomBytes(32).toString('hex');
+  const hashed = crypto.createHash('sha256').update(token).digest('hex');
+  await User.updateOne(
+    { _id: user._id },
+    { $set: { emailVerifyToken: hashed, emailVerifyExpires: new Date(Date.now() + 24 * 60 * 60 * 1000) } }
+  );
+  const baseUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').split(',')[0].trim().replace(/\/$/, '');
+  const link = `${baseUrl}/?verify=${token}`;
+  await sendMail({
+    to: user.email,
+    subject: 'Confirm your Roomie email address',
+    text: `Hi ${user.name},\n\nConfirm your email to start booking (link valid for 24 hours):\n${link}\n\nIf you didn't create a Roomie account, you can ignore this email.`,
+    html: `<p>Hi ${user.name},</p><p><a href="${link}">Confirm your email address</a> to start booking (link valid for 24 hours).</p><p>If you didn't create a Roomie account, you can ignore this email.</p>`
+  });
+};
+
 // @desc    Register new user
 // @route   POST /api/auth/register
 // @access  Public
 exports.register = async (req, res) => {
   try {
-    const { password } = req.body;
-    const name = (req.body.name || '').trim();
-    const email = (req.body.email || '').trim().toLowerCase();
+    const password = str(req.body.password);
+    const name = str(req.body.name).trim();
+    const email = str(req.body.email).trim().toLowerCase();
 
     // Validation - one clear message per problem
     if (!name || !email || !password) {
@@ -55,8 +76,16 @@ exports.register = async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      role: 'customer'
+      role: 'customer',
+      // When email is set up, new accounts must confirm their address before booking
+      isEmailVerified: !isMailConfigured()
     });
+
+    if (user.isEmailVerified === false) {
+      await sendVerificationEmail(user).catch(err =>
+        console.error('[Roomie] Could not send verification email:', err.message)
+      );
+    }
 
     // Generate token
     const token = generateToken(user._id);
@@ -70,6 +99,7 @@ exports.register = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        isEmailVerified: user.isEmailVerified !== false,
         createdAt: user.createdAt
       }
     });
@@ -101,7 +131,8 @@ exports.register = async (req, res) => {
 // @access  Public
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const email = str(req.body.email);
+    const password = str(req.body.password);
 
     // Validation
     if (!email && !password) {
@@ -155,6 +186,7 @@ exports.login = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        isEmailVerified: user.isEmailVerified !== false,
         phone: user.phone,
         address: user.address,
         bio: user.bio,
@@ -186,6 +218,7 @@ exports.getMe = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        isEmailVerified: user.isEmailVerified !== false,
         phone: user.phone,
         address: user.address,
         bio: user.bio,
@@ -236,6 +269,7 @@ exports.updateProfile = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        isEmailVerified: user.isEmailVerified !== false,
         phone: user.phone,
         address: user.address,
         bio: user.bio,
@@ -268,7 +302,7 @@ exports.logout = async (req, res) => {
 // @access  Public
 exports.forgotPassword = async (req, res) => {
   try {
-    const email = (req.body.email || '').trim().toLowerCase();
+    const email = str(req.body.email).trim().toLowerCase();
 
     if (!email) {
       return res.status(400).json({ success: false, message: 'Please enter your email address.' });
@@ -345,7 +379,8 @@ exports.forgotPassword = async (req, res) => {
 // @access  Public
 exports.resetPassword = async (req, res) => {
   try {
-    const { token, password } = req.body;
+    const token = str(req.body.token);
+    const password = str(req.body.password);
 
     if (!token) {
       return res.status(400).json({ success: false, message: 'This reset link is incomplete. Please request a new one.' });
@@ -397,7 +432,8 @@ exports.resetPassword = async (req, res) => {
 // @access  Private
 exports.changePassword = async (req, res) => {
   try {
-    const { currentPassword, newPassword } = req.body;
+    const currentPassword = str(req.body.currentPassword);
+    const newPassword = str(req.body.newPassword);
 
     if (!currentPassword) {
       return res.status(400).json({ success: false, message: 'Please enter your current password.' });
@@ -434,5 +470,58 @@ exports.changePassword = async (req, res) => {
       success: false,
       message: 'We could not change your password right now. Please try again.'
     });
+  }
+};
+
+// @desc    Confirm an email address with the emailed token
+// @route   POST /api/auth/verify-email
+// @access  Public
+exports.verifyEmail = async (req, res) => {
+  try {
+    const token = str(req.body.token);
+    if (!token) {
+      return res.status(400).json({ success: false, message: 'This verification link is incomplete. Please request a new one.' });
+    }
+    const hashed = crypto.createHash('sha256').update(String(token)).digest('hex');
+    const user = await User.findOne({ emailVerifyToken: hashed, emailVerifyExpires: { $gt: new Date() } });
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'This verification link is invalid or has expired. Log in and press "Resend email" to get a new one.'
+      });
+    }
+    await User.updateOne(
+      { _id: user._id },
+      { $set: { isEmailVerified: true }, $unset: { emailVerifyToken: '', emailVerifyExpires: '' } }
+    );
+    res.status(200).json({ success: true, message: 'Your email address is verified. You can now book rooms.' });
+  } catch (error) {
+    console.error('Verify email error:', error);
+    res.status(500).json({ success: false, message: 'We could not verify your email right now. Please try again.' });
+  }
+};
+
+// @desc    Send the verification email again (once per minute)
+// @route   POST /api/auth/resend-verification
+// @access  Private
+exports.resendVerification = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('+emailVerifyExpires');
+    if (user.isEmailVerified !== false) {
+      return res.status(400).json({ success: false, message: 'Your email address is already verified.' });
+    }
+    const status = mailStatus();
+    if (!status.configured) {
+      return res.status(503).json({ success: false, message: `Email is not set up on the server (${status.reason}).` });
+    }
+    // The link lives 24h, so a link younger than 60 seconds has more than 23h59m left
+    if (user.emailVerifyExpires && user.emailVerifyExpires.getTime() - Date.now() > 24 * 60 * 60 * 1000 - 60 * 1000) {
+      return res.status(429).json({ success: false, message: 'We just sent you a link. Please wait a minute before asking for another one.' });
+    }
+    await sendVerificationEmail(user);
+    res.status(200).json({ success: true, message: `We sent a new verification link to ${user.email}.` });
+  } catch (error) {
+    console.error('Resend verification error:', error);
+    res.status(502).json({ success: false, message: `We could not send the email: ${error.message}` });
   }
 };

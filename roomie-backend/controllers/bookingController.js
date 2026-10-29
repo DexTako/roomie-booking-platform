@@ -1,6 +1,7 @@
 const Booking = require('../models/Booking');
 const Room = require('../models/Room');
 const { refundPayPalBooking } = require('./paypalController');
+const { notifyBookingCreated, notifyBookingStatus } = require('../utils/notifications');
 const { normalizeReference, isValidReference } = require('./gcashController');
 
 // Helper function to ensure booking has complete price data
@@ -281,6 +282,8 @@ exports.createBooking = async (req, res) => {
       status: 'pending'
     });
 
+    notifyBookingCreated(booking); // emails (if set up), never blocks the booking
+
     res.status(201).json({
       success: true,
       message: 'Booking created successfully',
@@ -380,6 +383,7 @@ exports.updateBookingStatus = async (req, res) => {
       });
     }
     booking.status = status;
+    notifyBookingStatus(booking, status, 'host');
 
     // Declined or cancelled by the host: give a PayPal-paid guest their money back
     let refundNote = '';
@@ -443,6 +447,7 @@ exports.cancelBooking = async (req, res) => {
 
     booking.status = 'cancelled';
     await booking.save();
+    notifyBookingStatus(booking, 'cancelled', 'guest');
 
     // PayPal-paid bookings are refunded in full when the guest cancels
     const refund = await refundPayPalBooking(booking);

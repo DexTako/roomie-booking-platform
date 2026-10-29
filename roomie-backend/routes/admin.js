@@ -8,7 +8,7 @@ const {
   banUser,
   unbanUser
 } = require('../controllers/adminController');
-const { getMessages, updateMessageStatus } = require('../controllers/contactController');
+const { getMessages, updateMessageStatus, replyToMessage } = require('../controllers/contactController');
 const { protect, authorize } = require('../middleware/auth');
 
 // All routes require admin authorization
@@ -24,5 +24,6 @@ router.put('/users/:id/ban', banUser);
 router.put('/users/:id/unban', unbanUser);
 router.get('/contact-messages', getMessages);
 router.put('/contact-messages/:id', updateMessageStatus);
+router.post('/contact-messages/:id/reply', replyToMessage);
 
 module.exports = router;

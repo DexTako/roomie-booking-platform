@@ -1,6 +1,9 @@
 const jwt = require('jsonwebtoken');
 const ContactMessage = require('../models/ContactMessage');
 const User = require('../models/User');
+const { sendMail, mailStatus } = require('../utils/mailer');
+
+const str = (value) => (typeof value === 'string' ? value : '');
 
 // Simple spam guard: max 5 messages per IP per hour (resets when the server restarts)
 const recent = new Map();
@@ -24,10 +27,10 @@ const tooManyRequests = (ip) => {
 // @access  Public (links the message to the account when the sender is logged in)
 exports.submitMessage = async (req, res) => {
   try {
-    const name = (req.body.name || '').trim();
-    const email = (req.body.email || '').trim().toLowerCase();
-    const subject = (req.body.subject || '').trim();
-    const message = (req.body.message || '').trim();
+    const name = str(req.body.name).trim();
+    const email = str(req.body.email).trim().toLowerCase();
+    const subject = str(req.body.subject).trim();
+    const message = str(req.body.message).trim();
 
     if (!name) return res.status(400).json({ success: false, message: 'Please enter your name.' });
     if (!email) return res.status(400).json({ success: false, message: 'Please enter your email so we can reply to you.' });
@@ -107,5 +110,58 @@ exports.updateMessageStatus = async (req, res) => {
   } catch (error) {
     console.error('Update contact message error:', error);
     res.status(500).json({ success: false, message: 'Could not update the message.' });
+  }
+};
+
+// @desc    Email a reply straight to the person who sent a contact message
+// @route   POST /api/admin/contact-messages/:id/reply
+// @access  Private/Admin
+exports.replyToMessage = async (req, res) => {
+  try {
+    const reply = str(req.body.reply).trim();
+    if (!reply) {
+      return res.status(400).json({ success: false, message: 'Please write your reply first.' });
+    }
+    if (reply.length > 3000) {
+      return res.status(400).json({ success: false, message: 'Your reply is too long. Please keep it under 3000 characters.' });
+    }
+
+    const status = mailStatus();
+    if (!status.configured) {
+      return res.status(503).json({
+        success: false,
+        message: `Email is not set up on the server (${status.reason}), so the reply could not be sent.`
+      });
+    }
+
+    const message = await ContactMessage.findById(req.params.id);
+    if (!message) return res.status(404).json({ success: false, message: 'Message not found.' });
+
+    const quoted = message.message.split('\n').map(line => `> ${line}`).join('\n');
+    await sendMail({
+      to: message.email,
+      subject: `Re: ${message.subject}`,
+      text: `Hi ${message.name},\n\n${reply}\n\n-- Roomie Support\n\nYour original message:\n${quoted}`,
+      html:
+        `<p>Hi ${message.name.replace(/[<>&]/g, '')},</p>` +
+        `<p style="white-space:pre-wrap">${reply.replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]))}</p>` +
+        `<p>-- Roomie Support</p>` +
+        `<blockquote style="color:#555;border-left:3px solid #ccc;margin:16px 0;padding-left:12px;white-space:pre-wrap">` +
+        `${message.message.replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]))}</blockquote>`
+    });
+
+    message.adminReply = reply;
+    message.repliedAt = new Date();
+    message.repliedBy = req.user._id;
+    message.status = 'resolved';
+    await message.save();
+
+    res.status(200).json({ success: true, message });
+  } catch (error) {
+    console.error('Reply to contact message error:', error);
+    res.status(502).json({
+      success: false,
+      message: `The reply could not be emailed: ${error.message}`
+    });
   }
 };

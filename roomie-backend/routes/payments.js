@@ -9,6 +9,7 @@ const {
 const { getPayPalConfig, createOrder, captureOrder } = require('../controllers/paypalController');
 const { getGcashConfig } = require('../controllers/gcashController');
 const { protect } = require('../middleware/auth');
+const requireVerifiedEmail = require('../middleware/verified');
 
 // Public routes
 router.get('/config', getStripeConfig);
@@ -21,7 +22,7 @@ router.post('/create-payment-intent', protect, createPaymentIntent);
 router.post('/confirm-payment', protect, confirmPayment);
 
 // PayPal checkout
-router.post('/paypal/create-order', protect, createOrder);
-router.post('/paypal/capture-order', protect, captureOrder);
+router.post('/paypal/create-order', protect, requireVerifiedEmail, createOrder);
+router.post('/paypal/capture-order', protect, requireVerifiedEmail, captureOrder);
 
 module.exports = router;

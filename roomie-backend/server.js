@@ -55,6 +55,24 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token']
 };
 
+// ---- Security & performance middleware (each one is optional until installed: npm install) ----
+const optional = (name) => {
+  try {
+    return require(name);
+  } catch {
+    console.warn(`[Roomie] "${name}" is not installed. Run: npm install   (the server still works without it)`);
+    return null;
+  }
+};
+
+app.disable('x-powered-by');
+
+const helmet = optional('helmet');
+if (helmet) app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } })); // secure HTTP headers
+
+const compression = optional('compression');
+if (compression) app.use(compression()); // smaller responses = faster pages
+
 app.use(cors(corsOptions));
 // Stripe signs the RAW body, so the webhook must be read before express.json()
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
@@ -63,6 +81,38 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Trust proxy (important for Render)
 app.set('trust proxy', 1);
+
+// Remove "$" operators from user input (NoSQL injection protection)
+app.use(require('./utils/sanitize').sanitizeRequest);
+
+// Rate limiting: slows down brute-force logins and floods
+const rateLimit = optional('express-rate-limit');
+if (rateLimit) {
+  const tooMany = (message) => ({ success: false, message });
+  app.use('/api', rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 600,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: tooMany('Too many requests. Please slow down and try again in a few minutes.')
+  }));
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: tooMany('Too many attempts. Please wait 15 minutes and try again.')
+  });
+  app.use('/api/auth/login', authLimiter);
+  app.use('/api/auth/register', authLimiter);
+  app.use('/api/auth/forgot-password', authLimiter);
+  app.use('/api/auth/reset-password', authLimiter);
+}
+
+// Warn about a weak JWT secret (tokens could be forged)
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+  console.warn('[Roomie] JWT_SECRET is missing or short. Use a long random string (32+ characters).');
+}
 
 // Test route
 app.get('/', (req, res) => {

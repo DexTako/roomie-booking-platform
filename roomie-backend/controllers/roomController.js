@@ -8,7 +8,7 @@ const { refundPayPalBooking } = require('./paypalController');
 // @access  Public
 exports.getAllRooms = async (req, res) => {
   try {
-    const { theme, minPrice, maxPrice, capacity, search } = req.query;
+    const { theme, minPrice, maxPrice, capacity, search, checkIn, checkOut } = req.query;
 
     // Build query
     let query = { isActive: true };
@@ -28,6 +28,16 @@ exports.getAllRooms = async (req, res) => {
         { description: { $regex: safeSearch, $options: 'i' } },
         { location: { $regex: safeSearch, $options: 'i' } }
       ];
+    }
+
+    // Airbnb-style search: only rooms that are free for the chosen dates
+    if (checkIn && checkOut && new Date(checkOut) > new Date(checkIn)) {
+      const busyRoomIds = await Booking.find({
+        status: { $in: ['pending', 'approved'] },
+        checkIn: { $lt: new Date(checkOut) },
+        checkOut: { $gt: new Date(checkIn) }
+      }).distinct('roomId');
+      if (busyRoomIds.length > 0) query._id = { $nin: busyRoomIds };
     }
 
     const rooms = await Room.find(query).sort({ createdAt: -1 });

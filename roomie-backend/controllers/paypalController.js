@@ -1,5 +1,6 @@
 const Room = require('../models/Room');
 const Booking = require('../models/Booking');
+const { notifyBookingCreated } = require('../utils/notifications');
 
 // Keep in sync with SERVICE_FEE_RATE in the frontend (utils/pricing.js)
 const SERVICE_FEE_RATE = 0.10;
@@ -239,6 +240,7 @@ exports.captureOrder = async (req, res) => {
         status: 'pending'
       });
 
+      notifyBookingCreated(booking);
       return res.status(201).json({ success: true, message: 'Payment received and booking created', booking });
     } catch (bookingError) {
       // Money was taken but the booking could not be saved: give it back straight away

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import RoomCard from '../components/RoomCard'
 import AdvancedFilters from '../components/AdvancedFilters'
+import StaySearch from '../components/StaySearch'
 import SearchBar from '../components/SearchBar'
 import LogoutConfirmModal from '../components/LogoutConfirmModal'
 import api from '../services/api'
@@ -37,6 +38,7 @@ function HomePage({
     amenities: [],
     sortBy: 'featured'
   })
+  const [stay, setStay] = useState({ checkIn: '', checkOut: '', guests: '' })
   const [activeShowcase, setActiveShowcase] = useState('rooms')
   const [navVisible, setNavVisible] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -44,22 +46,31 @@ function HomePage({
 
   const hideTimer = useRef(null)
 
-  // Fetch rooms from API on mount
+  // Fetch rooms from the API, and again whenever the stay dates or guest count change
+  // (the server only returns rooms that are free for those dates)
   useEffect(() => {
+    let cancelled = false
     const fetchRooms = async () => {
       setIsLoadingRooms(true)
       try {
-        const data = await api.getAllRooms()
-        setRooms(data)
+        const filters = {}
+        if (stay.checkIn && stay.checkOut && stay.checkOut > stay.checkIn) {
+          filters.checkIn = stay.checkIn
+          filters.checkOut = stay.checkOut
+        }
+        if (stay.guests) filters.capacity = stay.guests
+        const data = await api.getAllRooms(filters)
+        if (!cancelled) setRooms(data)
       } catch (error) {
         console.error('Failed to fetch rooms:', error)
       } finally {
-        setIsLoadingRooms(false)
+        if (!cancelled) setIsLoadingRooms(false)
       }
     }
 
     fetchRooms()
-  }, [])
+    return () => { cancelled = true }
+  }, [stay.checkIn, stay.checkOut, stay.guests])
 
   // Apply all filters
   const applyFilters = (roomsList) => {
@@ -1249,6 +1260,12 @@ function HomePage({
 
           {/* Search Bar */}
           <div className="mb-8">
+            <StaySearch
+              stay={stay}
+              onChange={setStay}
+              resultCount={rooms.length}
+              isLoading={isLoadingRooms}
+            />
             <SearchBar value={searchTerm} onSearch={setSearchTerm} />
           </div>
 

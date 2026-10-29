@@ -9,13 +9,14 @@ const {
   getMyBookings
 } = require('../controllers/bookingController');
 const { protect, authorize } = require('../middleware/auth');
+const requireVerifiedEmail = require('../middleware/verified');
 
 // All booking routes require authentication
 router.use(protect);
 
 // Customer routes
 router.get('/my-bookings', getMyBookings);
-router.post('/', createBooking);
+router.post('/', requireVerifiedEmail, createBooking);
 router.delete('/:id', cancelBooking);
 
 // General protected routes

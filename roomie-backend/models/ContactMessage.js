@@ -8,7 +8,11 @@ const contactMessageSchema = new mongoose.Schema({
   message: { type: String, required: true, trim: true, maxlength: 2000 },
   // Set when the sender was logged in
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-  status: { type: String, enum: ['new', 'read', 'resolved'], default: 'new' }
+  status: { type: String, enum: ['new', 'read', 'resolved'], default: 'new' },
+  // The reply the admin emailed back to the sender
+  adminReply: { type: String, default: '', maxlength: 3000 },
+  repliedAt: { type: Date, default: null },
+  repliedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
 }, { timestamps: true });
 
 contactMessageSchema.index({ status: 1, createdAt: -1 });
