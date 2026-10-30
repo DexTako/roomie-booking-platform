@@ -1,9 +1,18 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import ImageLightbox from './ImageLightbox'
 
-function RoomGallery({ images, onTryMe }) {
+function RoomGallery({ images: allImages, onTryMe }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showLightbox, setShowLightbox] = useState(false)
+
+  // Photos whose link is dead are dropped, so no "broken image" icon is ever shown
+  const [failed, setFailed] = useState([])
+  const images = (allImages || []).filter((src) => !failed.includes(src))
+  const markBroken = (src) => setFailed((prev) => (prev.includes(src) ? prev : [...prev, src]))
+
+  useEffect(() => {
+    if (images.length > 0 && currentIndex >= images.length) setCurrentIndex(0)
+  }, [images.length, currentIndex])
 
   const nextImage = () => {
     setCurrentIndex((prev) => (prev + 1) % images.length)
@@ -22,6 +31,14 @@ function RoomGallery({ images, onTryMe }) {
     setShowLightbox(true)
   }
 
+  if (images.length === 0) {
+    return (
+      <div className="relative aspect-[4/3] bg-gray-800 rounded-lg flex items-center justify-center text-gray-400 text-sm">
+        Photos are not available for this room
+      </div>
+    )
+  }
+
   return (
     <>
       <div className="relative bg-gray-900 rounded-lg overflow-hidden">
@@ -32,6 +49,7 @@ function RoomGallery({ images, onTryMe }) {
             alt={`Room view ${currentIndex + 1}`}
             className="w-full h-full object-cover cursor-pointer"
             onClick={() => openLightbox(currentIndex)}
+            onError={() => markBroken(images[currentIndex])}
           />
 
           {/* Expand Icon */}
@@ -126,6 +144,7 @@ function RoomGallery({ images, onTryMe }) {
                 src={image}
                 alt={`Thumbnail ${index + 1}`}
                 className="w-full h-full object-cover"
+                onError={() => markBroken(image)}
               />
             </button>
           ))}

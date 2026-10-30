@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import RoomCard from '../components/RoomCard'
 import AdvancedFilters from '../components/AdvancedFilters'
 import StaySearch from '../components/StaySearch'
+import Avatar from '../components/Avatar'
 import SearchBar from '../components/SearchBar'
 import LogoutConfirmModal from '../components/LogoutConfirmModal'
 import api from '../services/api'
@@ -385,12 +386,12 @@ function HomePage({
                           />
                         </svg>
                         Wishlist
+                        {wishlistCount > 0 && (
+                          <span className="ml-1 min-w-[20px] h-5 px-1 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                            {wishlistCount}
+                          </span>
+                        )}
                       </div>
-                      {wishlistCount > 0 && (
-                        <span className="absolute -top-1 -right-2 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                          {wishlistCount}
-                        </span>
-                      )}
                     </button>
 
                     <button
@@ -413,12 +414,12 @@ function HomePage({
                           />
                         </svg>
                         Compare
+                        {comparisonCount > 0 && (
+                          <span className="ml-1 min-w-[20px] h-5 px-1 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                            {comparisonCount}
+                          </span>
+                        )}
                       </div>
-                      {comparisonCount > 0 && (
-                        <span className="absolute -top-1 -right-2 w-5 h-5 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                          {comparisonCount}
-                        </span>
-                      )}
                     </button>
 
                     <button
@@ -428,6 +429,7 @@ function HomePage({
                         w-10
                         h-10
                         rounded-full
+                        overflow-hidden
                         bg-indigo-100
                         text-indigo-600
                         flex
@@ -439,9 +441,11 @@ function HomePage({
                       "
                       title={user.name}
                     >
-                      {user.name
-                        ? user.name.charAt(0).toUpperCase()
-                        : 'U'}
+                      <Avatar
+                        src={user.profilePicture}
+                        name={user.name}
+                        className="w-10 h-10"
+                      />
                     </button>
 
                     {/* Logout Button */}

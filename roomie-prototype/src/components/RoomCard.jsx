@@ -46,6 +46,11 @@ function RoomCard({ room, onSelect, onShowToast }) {
       {/* Room Image */}
       <div className="relative h-48 overflow-hidden">
         <img 
+          onError={(e) => {
+            // dead photo link: show a neutral placeholder instead of the broken-image icon
+            e.currentTarget.onerror = null
+            e.currentTarget.src = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect width="100%" height="100%" fill="#e5e7eb"/><text x="50%" y="50%" fill="#6b7280" font-family="Arial" font-size="28" text-anchor="middle">Photo unavailable</text></svg>')
+          }}
           src={room.galleryImages[0]} 
           alt={room.name}
           className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
