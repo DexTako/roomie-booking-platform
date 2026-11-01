@@ -1,15 +1,14 @@
-# Render Blueprint: creates the backend web service (free plan) from this repository.
-# Render dashboard > New > Blueprint > pick this repo. Values marked "sync: false" are asked for
-# in the dashboard, so no secret ever lives in the repository.
+# Render Blueprint: Full-stack deployment (Backend serves Frontend)
 services:
   - type: web
-    name: roomie-backend
+    name: roomie-fullstack
     runtime: node
     plan: free
     region: singapore
-    rootDir: roomie-backend
-    buildCommand: npm install
-    startCommand: npm start
+    buildCommand: |
+      cd roomie-backend && npm install
+      cd ../roomie-prototype && npm install && npm run build
+    startCommand: cd roomie-backend && npm start
     healthCheckPath: /health
     autoDeploy: true
     envVars:
@@ -22,7 +21,7 @@ services:
       - key: MONGODB_URI
         sync: false
       - key: FRONTEND_URL
-        sync: false
+        value: https://roomie-fullstack.onrender.com
       - key: GCASH_NUMBER
         sync: false
       - key: GCASH_ACCOUNT_NAME
@@ -30,4 +29,12 @@ services:
       - key: BREVO_API_KEY
         sync: false
       - key: EMAIL_FROM
+        sync: false
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_PORT
+        sync: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
         sync: false
