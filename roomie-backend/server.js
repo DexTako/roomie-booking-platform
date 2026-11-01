@@ -69,7 +69,21 @@ const optional = (name) => {
 app.disable('x-powered-by');
 
 const helmet = optional('helmet');
-if (helmet) app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } })); // secure HTTP headers
+if (helmet) {
+  app.use(helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-eval'"], // unsafe-eval needed for WebAssembly (Three.js 3D models)
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "blob:", "https://images.unsplash.com", "https://i.pinimg.com"],
+        connectSrc: ["'self'", "blob:"],
+        workerSrc: ["'self'", "blob:"],
+      },
+    },
+  }));
+}
 
 const compression = optional('compression');
 if (compression) app.use(compression()); // smaller responses = faster pages

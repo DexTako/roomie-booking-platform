@@ -204,6 +204,10 @@ const seedData = async () => {
         isActive: true,
         isAvailable: true
       },
+      /*
+      // Room 3: Luxury Penthouse Suite - DISABLED FOR PRODUCTION
+      // The 469MB model file is too large for deployment
+      // Team members can enable this locally by extracting the model
       {
         name: "Luxury Penthouse Suite",
         description: "Exclusive penthouse with panoramic city views. Features a private terrace, premium appliances, and designer furnishings throughout.",
@@ -251,6 +255,7 @@ const seedData = async () => {
         isActive: true,
         isAvailable: true
       },
+      */
       {
         name: "Minimalistic Apartment",
         description: "Modern minimalistic apartment in the city center with room bathrooms and contemporary design.",
