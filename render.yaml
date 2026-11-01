@@ -6,8 +6,8 @@ services:
     plan: free
     region: singapore
     buildCommand: |
-      cd roomie-backend && npm install
-      cd ../roomie-prototype && npm install && npm run build
+      cd roomie-backend && npm ci
+      cd ../roomie-prototype && npm ci && npm run build
     startCommand: cd roomie-backend && npm start
     healthCheckPath: /health
     autoDeploy: true
