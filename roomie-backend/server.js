@@ -114,11 +114,12 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
   console.warn('[Roomie] JWT_SECRET is missing or short. Use a long random string (32+ characters).');
 }
 
-// Test route
-app.get('/', (req, res) => {
-  res.json({ 
-    message: '🏨 Roomie Booking API is running!',
-    status: 'success' 
+// Health check endpoint for monitoring (before other routes)
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV 
   });
 });
 
@@ -137,12 +138,22 @@ if (process.env.NODE_ENV === 'production') {
   const path = require('path');
   const frontendPath = path.join(__dirname, '../roomie-prototype/dist');
   
+  console.log(`📁 Serving static files from: ${frontendPath}`);
+  
   // Serve static files from the React app
   app.use(express.static(frontendPath));
   
   // Handle React routing - return all requests to React app
   app.get('*', (req, res) => {
     res.sendFile(path.join(frontendPath, 'index.html'));
+  });
+} else {
+  // Test route for development
+  app.get('/', (req, res) => {
+    res.json({ 
+      message: '🏨 Roomie Booking API is running!',
+      status: 'success' 
+    });
   });
 }
 
@@ -152,15 +163,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({ 
     message: 'Something went wrong!', 
     error: process.env.NODE_ENV === 'development' ? err.message : {} 
-  });
-});
-
-// Health check endpoint for monitoring
-app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'healthy', 
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV 
   });
 });
 
