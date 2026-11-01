@@ -102,9 +102,12 @@ function BookingWizard({ room, onClose, onComplete, onBookingCreated, initialDat
     }
   }
 
+  const datesBackwards = Boolean(bookingData.checkIn && bookingData.checkOut && bookingData.checkOut <= bookingData.checkIn)
+  const checkInInPast = Boolean(bookingData.checkIn && bookingData.checkIn < todayISO())
+
   const isStepValid = () => {
     if (currentStep === 1) {
-      return bookingData.checkIn && bookingData.checkOut && nights > 0
+      return bookingData.checkIn && bookingData.checkOut && nights > 0 && !datesBackwards && !checkInInPast
     }
     if (currentStep === 2) {
       return bookingData.guestName && bookingData.guestEmail && bookingData.guests > 0
@@ -178,7 +181,7 @@ function BookingWizard({ room, onClose, onComplete, onBookingCreated, initialDat
                   <input
                     type="date"
                     value={bookingData.checkIn}
-                    onChange={(e) => setBookingData({ ...bookingData, checkIn: e.target.value })}
+                    onChange={(e) => { setDateNotice(''); setBookingData({ ...bookingData, checkIn: e.target.value }) }}
                     min={todayISO()}
                     className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none"
                   />
@@ -191,12 +194,24 @@ function BookingWizard({ room, onClose, onComplete, onBookingCreated, initialDat
                   <input
                     type="date"
                     value={bookingData.checkOut}
-                    onChange={(e) => setBookingData({ ...bookingData, checkOut: e.target.value })}
+                    onChange={(e) => { setDateNotice(''); setBookingData({ ...bookingData, checkOut: e.target.value }) }}
                     min={bookingData.checkIn || todayISO()}
                     className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none"
                   />
                 </div>
               </div>
+
+              {datesBackwards && (
+                <div role="alert" className="p-4 bg-red-50 rounded-xl border-2 border-red-200 text-sm text-red-700">
+                  Check-out ({formatDateLabel(bookingData.checkOut)}) must be after check-in ({formatDateLabel(bookingData.checkIn)}). Please choose a later check-out date.
+                </div>
+              )}
+
+              {checkInInPast && (
+                <div role="alert" className="p-4 bg-red-50 rounded-xl border-2 border-red-200 text-sm text-red-700">
+                  Check-in ({formatDateLabel(bookingData.checkIn)}) has already passed. Please choose today or a later date.
+                </div>
+              )}
 
               {dateNotice && (
                 <div className="p-4 bg-red-50 rounded-xl border-2 border-red-200 text-sm text-red-700">

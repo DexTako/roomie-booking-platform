@@ -24,6 +24,11 @@ function AdminDashboard() {
   const [userRoleFilter, setUserRoleFilter] = useState('all') // all, admin, host, customer
   const [userSortBy, setSortBy] = useState('newest') // newest, oldest, name
   const [showExportMenu, setShowExportMenu] = useState(false)
+  const [bookingSearch, setBookingSearch] = useState('')
+  const [bookingStatusFilter, setBookingStatusFilter] = useState('all')
+  const [bookingPaymentFilter, setBookingPaymentFilter] = useState('all')
+  const [bookingFrom, setBookingFrom] = useState('')
+  const [bookingTo, setBookingTo] = useState('')
   const [banningUserId, setBanningUserId] = useState(null)
 
   useEffect(() => {
@@ -68,6 +73,8 @@ function AdminDashboard() {
         guests: booking.guests || 1,
         totalPrice: booking.totalPrice || 0,
         status: booking.status,
+        paymentMethod: booking.paymentMethod || '',
+        paymentStatus: booking.paymentStatus || '',
         createdAt: booking.createdAt
       }))
 
@@ -120,6 +127,22 @@ function AdminDashboard() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Admin Bookings tab: search by guest, email, room or booking number; filter by status, payment and check-in dates
+  const getFilteredBookings = () => {
+    const q = bookingSearch.trim().toLowerCase()
+    return bookings.filter(b => {
+      if (q) {
+        const text = `${b.id} ${b.roomName} ${b.renterName} ${b.renterEmail}`.toLowerCase()
+        if (!text.includes(q)) return false
+      }
+      if (bookingStatusFilter !== 'all' && b.status !== bookingStatusFilter) return false
+      if (bookingPaymentFilter !== 'all' && b.paymentMethod !== bookingPaymentFilter) return false
+      if (bookingFrom && b.checkIn < bookingFrom) return false
+      if (bookingTo && b.checkIn > bookingTo) return false
+      return true
+    })
   }
 
   const getStatusColor = (status) => {
@@ -728,6 +751,67 @@ function AdminDashboard() {
 
         {activeTab === 'bookings' && (
           <div className="space-y-4">
+            {bookings.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm p-4">
+                <div className="grid gap-3 md:grid-cols-6">
+                  <input
+                    type="search"
+                    value={bookingSearch}
+                    onChange={(e) => setBookingSearch(e.target.value)}
+                    placeholder="Search guest, email, room or booking number"
+                    className="md:col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                  <select
+                    value={bookingStatusFilter}
+                    onChange={(e) => setBookingStatusFilter(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    aria-label="Filter by status"
+                  >
+                    <option value="all">All statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="declined">Declined</option>
+                    <option value="cancelled">Cancelled</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                  <select
+                    value={bookingPaymentFilter}
+                    onChange={(e) => setBookingPaymentFilter(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    aria-label="Filter by payment method"
+                  >
+                    <option value="all">All payments</option>
+                    <option value="card">Card</option>
+                    <option value="gcash">GCash</option>
+                    <option value="paypal">PayPal</option>
+                    <option value="cash">Cash</option>
+                  </select>
+                  <label className="text-xs text-gray-500">
+                    Check-in from
+                    <input type="date" value={bookingFrom} onChange={(e) => setBookingFrom(e.target.value)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm" />
+                  </label>
+                  <label className="text-xs text-gray-500">
+                    Check-in to
+                    <input type="date" value={bookingTo} onChange={(e) => setBookingTo(e.target.value)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm" />
+                  </label>
+                </div>
+                <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
+                  <span>Showing {getFilteredBookings().length} of {bookings.length} bookings</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBookingSearch(''); setBookingStatusFilter('all'); setBookingPaymentFilter('all')
+                      setBookingFrom(''); setBookingTo('')
+                    }}
+                    className="text-purple-600 hover:text-purple-800 font-medium"
+                  >
+                    Clear filters
+                  </button>
+                </div>
+              </div>
+            )}
             {bookings.length === 0 ? (
               <div className="text-center py-16 bg-white rounded-lg shadow-sm">
                 <svg className="w-20 h-20 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -736,8 +820,13 @@ function AdminDashboard() {
                 <h3 className="text-xl font-semibold text-gray-700 mb-2">No bookings yet</h3>
                 <p className="text-gray-500">Bookings will appear here once users make reservations</p>
               </div>
+            ) : getFilteredBookings().length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-lg shadow-sm">
+                <p className="text-gray-700 font-semibold">No bookings match your search or filters</p>
+                <p className="text-sm text-gray-500 mt-1">Try a different word or press Clear filters.</p>
+              </div>
             ) : (
-              bookings.map(booking => (
+              getFilteredBookings().map(booking => (
                 <div key={booking.id} className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between mb-4">
                     <div>
@@ -753,6 +842,7 @@ function AdminDashboard() {
                     <div>
                       <p className="text-gray-600">Guest</p>
                       <p className="font-medium">{booking.renterName}</p>
+                      <p className="text-xs text-gray-500 break-all">{booking.renterEmail}</p>
                     </div>
                     <div>
                       <p className="text-gray-600">Check-in</p>
@@ -765,6 +855,9 @@ function AdminDashboard() {
                     <div>
                       <p className="text-gray-600">Total</p>
                       <p className="font-semibold text-green-600">{formatMoney(booking.totalPrice)}</p>
+                      {booking.paymentMethod && (
+                        <p className="text-xs text-gray-500 capitalize">{booking.paymentMethod} · {booking.paymentStatus}</p>
+                      )}
                     </div>
                   </div>
                 </div>

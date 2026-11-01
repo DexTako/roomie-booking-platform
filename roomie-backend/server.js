@@ -161,6 +161,11 @@ process.on('SIGTERM', gracefulShutdown);
 
 // Start server
 const PORT = process.env.PORT || 5000;
+// Mark approved bookings as completed once their check-out date has passed
+const { completeFinishedStays } = require('./controllers/bookingController');
+setTimeout(completeFinishedStays, 5000).unref();
+setInterval(completeFinishedStays, 60 * 60 * 1000).unref();
+
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📍 Environment: ${process.env.NODE_ENV}`);

@@ -1,0 +1,33 @@
+# Render Blueprint: creates the backend web service (free plan) from this repository.
+# Render dashboard > New > Blueprint > pick this repo. Values marked "sync: false" are asked for
+# in the dashboard, so no secret ever lives in the repository.
+services:
+  - type: web
+    name: roomie-backend
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: roomie-backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 20
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGODB_URI
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: GCASH_NUMBER
+        sync: false
+      - key: GCASH_ACCOUNT_NAME
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false

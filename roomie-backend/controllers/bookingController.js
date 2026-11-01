@@ -41,8 +41,30 @@ const ensureBookingPrices = async (booking) => {
 // @desc    Get all bookings (filtered by role)
 // @route   GET /api/bookings
 // @access  Private
+// A stay is finished once its check-out date has arrived: approved bookings become "completed".
+// Without this nothing ever set "completed", so the host and admin Completed lists stayed empty.
+// It runs when bookings are listed, once at start-up and every hour (see server.js).
+const completeFinishedStays = async () => {
+  try {
+    const finished = { status: 'approved', checkOut: { $lte: new Date() } };
+
+    // Cash is paid on arrival, so once the stay is over it counts as paid
+    await Booking.updateMany(
+      { ...finished, paymentMethod: 'cash', paymentStatus: 'pending' },
+      { $set: { paymentStatus: 'completed' } }
+    );
+    const result = await Booking.updateMany(finished, { $set: { status: 'completed' } });
+    return result.modifiedCount || 0;
+  } catch (error) {
+    console.error('[Roomie] Could not complete finished stays:', error.message);
+    return 0;
+  }
+};
+exports.completeFinishedStays = completeFinishedStays;
+
 exports.getAllBookings = async (req, res) => {
   try {
+    await completeFinishedStays();
     let query = {};
 
     // Customers only see their own bookings
@@ -482,6 +504,7 @@ exports.cancelBooking = async (req, res) => {
 // @access  Private
 exports.getMyBookings = async (req, res) => {
   try {
+    await completeFinishedStays();
     const bookings = await Booking.find({ renterId: req.user._id })
       .populate('roomId', 'name location galleryImages pricePerNight')
       .sort({ createdAt: -1 });

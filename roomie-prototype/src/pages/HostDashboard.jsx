@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import BookingRequestCard from '../components/BookingRequestCard'
 import AvailabilityCalendar from '../components/AvailabilityCalendar'
 import BookingMessagesModal from '../components/BookingMessagesModal'
+import HostRoomEditModal from '../components/HostRoomEditModal'
+import { useAuth } from '../context/AuthContext'
 import api from '../services/api'
 import {
   countNights,
@@ -14,6 +16,8 @@ import {
 } from '../utils/pricing'
 
 function HostDashboard() {
+  const { user } = useAuth()
+  const [editingRoom, setEditingRoom] = useState(null)
   const [bookings, setBookings] = useState([])
   const [rooms, setRooms] = useState([])
   const [isLoadingRooms, setIsLoadingRooms] = useState(true)
@@ -21,7 +25,7 @@ function HostDashboard() {
   const [filter, setFilter] = useState('all') // all, pending, approved, declined, completed
   const [showNotification, setShowNotification] = useState(false)
   const [notificationMessage, setNotificationMessage] = useState('')
-  const [activeView, setActiveView] = useState('list') // list, calendar
+  const [activeView, setActiveView] = useState('list') // list, calendar, rooms
   const [guestNotes, setGuestNotes] = useState(() => {
     const saved = localStorage.getItem('hostGuestNotes')
     return saved ? JSON.parse(saved) : {}
@@ -52,7 +56,10 @@ function HostDashboard() {
     const fetchRooms = async () => {
       setIsLoadingRooms(true)
       try {
-        const data = await api.getAllRooms()
+        const all = await api.getAllRooms()
+        // A host only sees and manages their own rooms
+        const myId = String(user?.id || user?._id || '')
+        const data = all.filter(r => String(r.hostId?._id || r.hostId) === myId)
         setRooms(data)
         if (data.length > 0) {
           setCalendarRoomId(data[0]._id || data[0].id)
@@ -241,6 +248,19 @@ function HostDashboard() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               Calendar
+            </button>
+            <button
+              onClick={() => setActiveView('rooms')}
+              className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+                activeView === 'rooms'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h4v-6h4v6h4a1 1 0 001-1V10" />
+              </svg>
+              My Rooms
             </button>
           </div>
 
@@ -468,6 +488,51 @@ function HostDashboard() {
           </div>
         )}
 
+        {/* My Rooms: change prices and details */}
+        {activeView === 'rooms' && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-1">My Rooms</h3>
+            <p className="text-sm text-gray-600 mb-5">Change the price or details of your rooms. New prices apply to future bookings.</p>
+
+            {isLoadingRooms ? (
+              <p className="text-gray-500">Loading your rooms...</p>
+            ) : rooms.length === 0 ? (
+              <p className="text-gray-500 py-8 text-center">You don't have any rooms yet.</p>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {rooms.map(room => (
+                  <div key={room._id || room.id} className="flex gap-4 border border-gray-200 rounded-xl p-3">
+                    <div className="w-24 h-24 rounded-lg bg-gray-200 overflow-hidden flex-shrink-0">
+                      {room.galleryImages?.[0] && (
+                        <img
+                          src={room.galleryImages[0]}
+                          alt={room.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => { e.currentTarget.style.display = 'none' }}
+                        />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900 truncate">{room.name}</p>
+                      <p className="text-xs text-gray-500 truncate">{room.location}</p>
+                      <p className="mt-1 text-lg font-bold text-green-600">
+                        ${Number(room.pricePerNight).toFixed(2)} <span className="text-xs font-normal text-gray-500">/ night</span>
+                      </p>
+                      <p className="text-xs text-gray-500">Up to {room.capacity} guests</p>
+                    </div>
+                    <button
+                      onClick={() => setEditingRoom(room)}
+                      className="self-start px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Calendar View */}
         {activeView === 'calendar' && (
           <div className="space-y-6">
@@ -543,6 +608,18 @@ function HostDashboard() {
           </div>
         )}
       </div>
+
+      {editingRoom && (
+        <HostRoomEditModal
+          room={editingRoom}
+          onClose={() => setEditingRoom(null)}
+          onSaved={(updated) => {
+            setRooms(prev => prev.map(r => ((r._id || r.id) === (updated._id || updated.id) ? updated : r)))
+            setEditingRoom(null)
+            showNotificationMessage('Room updated. The new price applies to future bookings.')
+          }}
+        />
+      )}
 
       {/* Messages with the guest */}
       {messageBooking && (

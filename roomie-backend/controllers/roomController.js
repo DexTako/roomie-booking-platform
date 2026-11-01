@@ -201,6 +201,17 @@ exports.updateRoom = async (req, res) => {
     delete req.body._id;
     delete req.body.hostId;
 
+    if (req.body.pricePerNight !== undefined) {
+      const price = Number(req.body.pricePerNight);
+      if (!Number.isFinite(price) || price <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Price per night must be a number greater than 0.'
+        });
+      }
+      req.body.pricePerNight = price;
+    }
+
     room = await Room.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true
