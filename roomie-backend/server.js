@@ -15,15 +15,16 @@ const app = express();
 // Production-ready middleware
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
+    // Allow requests with no origin (like mobile apps or curl requests, or same-origin requests)
     if (!origin) return callback(null, true);
     
     // Define allowed origins
     const allowedOrigins = process.env.NODE_ENV === 'production' 
       ? [
-          // Main Vercel production URL
+          // Main Render URL (full-stack deployment)
+          'https://roomie-booking-platform.onrender.com',
+          // Vercel URLs (if still using)
           'https://roomie-booking-platform-ub23.vercel.app',
-          // Allow any Vercel preview URL pattern (with or without trailing slash)
           /^https:\/\/roomie-booking-platform-ub23-.*\.vercel\.app\/?$/,
           // Also support the specific frontend URL if set
           ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(url => url.trim().replace(/\/$/, '')) : [])
