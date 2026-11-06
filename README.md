@@ -247,14 +247,6 @@ roomie-booking-platform/
 
 ---
 
-## 👥 Team
-
-| Name | Role |
-|------|------|
-| [Your Name] | Lead Developer |
-| [Team Member] | Frontend Specialist |
-| [Team Member] | Backend Developer |
-| [Team Member] | UI/UX Designer |
 
 ---
 
